@@ -1,0 +1,4 @@
+env_setup_done
+*.pth
+lotek_owl_data
+__pycache__
