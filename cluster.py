@@ -1,5 +1,6 @@
 import torch
 import torch.linalg as linalg
+import torch.nn.functional as F
 from sklearn.metrics import (
     adjusted_mutual_info_score as AMI,
     adjusted_rand_score as ARI,
@@ -53,7 +54,8 @@ class DBSCANTorch(DBSCANBase): # TODO: Why is this slower than numpy?
         return labels
 
     def predict(self, X, as_numpy=True):
-        X = torch.tensor(X[None, ...], device=self._X.device)
+        # X = torch.tensor(X[None, ...], device=self._X.device)
+        X = X.unsqueeze(0).cuda()
         centroids = self._centroids[:, None, ...]
         all_diff = X - centroids
         all_dist = torch.einsum("...k, ...k -> ...", all_diff, all_diff).sqrt()
@@ -108,12 +110,12 @@ class DBSCANTorch(DBSCANBase): # TODO: Why is this slower than numpy?
                     )
         return labels
 
-        
 
 
 def get_owlet_clusters(embeddings):
-    dbscan = DBSCANTorch(eps=0.7, minPts=300, metric="euclidean")
-    dbscan.fit(embeddings)
+    embeddings = F.normalize(embeddings, p=2, dim=1)
+    dbscan = DBSCANTorch(eps=0.3, minPts=200, metric="euclidean")
+    dbscan.fit(embeddings).cpu()
     clusters = torch.tensor(dbscan.predict(embeddings))
     unique_clusters = torch.unique(clusters)
     indices = torch.tensor(list(range(len(embeddings))))

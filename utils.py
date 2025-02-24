@@ -40,13 +40,13 @@ def imshow_to_pil(image_array, cmap="viridis"):
     return pil_image
 
 def reduce_dimensions(embeddings):
-    reducer =UMAP(n_components=2, metric="cosine")
-    reducer.fit(embeddings)
-    tsne_points = reducer.transform(embeddings)
+    # reducer =UMAP(n_components=2, metric="cosine")
+    # reducer.fit(embeddings)
+    # tsne_points = reducer.transform(embeddings)
 
     
-    # reducer = PCA(n_components=2, svd_solver='auto')
-    # tsne_points = reducer.fit_transform(embeddings)
+    reducer = PCA(n_components=2, svd_solver='auto')
+    tsne_points = reducer.fit_transform(embeddings)
     return tsne_points
 
 
@@ -119,20 +119,7 @@ class VisualiserInteractive:
                 layer="below"
             )
         )
-        image.add_layout_image(
-            dict(
-                source=TO_PIL(torch.zeros(3, 128, 400)),
-                xref="x",
-                yref="y",
-                x=2,
-                y=3,
-                sizex=2,
-                sizey=2,
-                sizing="stretch",
-                opacity=1,
-                layer="below"
-            )
-        )
+
         image.update_layout(
             xaxis=dict(
                 showgrid=False,  # Hide grid lines
@@ -155,11 +142,9 @@ class VisualiserInteractive:
             if len(point.point_inds) > 0:
                 ind = point.point_inds[0]
                 spec = self.melspecs[ind]
-                spec_og = self.melspecs_og[ind]
                 imagew.update_layout(
                     images=[
                         dict(source=imshow_to_pil(spec)),
-                        dict(source=imshow_to_pil(spec_og)),
                     ]
                 )
 
@@ -189,3 +174,21 @@ class VisualiserInteractive:
     def show(self):
         display(self.graph)
         pass
+
+    
+
+# import time
+# import torch.nn.functional as F
+
+# total_ds_size = 3375
+# hop_size = 20
+# for start in range(0, total_ds_size, hop_size):
+#     hop_size = min(total_ds_size - start, hop_size)
+#     indices = [start, start + hop_size]
+#     verification_dl = get_verification_dataloader(owlet_dataset, indices, collate_func)
+#     validation_embeds, _, _ = create_embeds(owlnet, model_name, verification_dl)
+#     vis.pop_verification_trace()
+#     validation_embeds = F.normalize(validation_embeds, p=2, dim=1)
+#     vis.add_points(validation_embeds, 'x', 5)
+#     time.sleep(1.0)
+    
