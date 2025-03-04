@@ -82,8 +82,6 @@ def get_zero_crossing_indices(melspec, zero_threshold, min_len, max_len):
     # replace all values below threshold with 0 and average along the 
     # frequency axis
     mean_freq_axis = melspec.mean(dim=1).squeeze()
-    # print(mean_freq_axis[10000:10500])
-    # print(mean_freq_axis[300:700])
     filtered = torch.where(mean_freq_axis<= zero_threshold, 0, mean_freq_axis)
 
     # Use 2 pointers to keep track of start and end of a call
@@ -126,7 +124,6 @@ def image_grid(image_batch):
             )
     grid_with_spacers = torch.cat(grid_with_spacers, dim=1)
     grid = grid_with_spacers.reshape(height, (width * batch_sz) + (num_spacers * spacer_width))
-    print(grid.max(), grid.min())
     return grid
     
 
