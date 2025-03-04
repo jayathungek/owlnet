@@ -114,7 +114,7 @@ class DBSCANTorch(DBSCANBase): # TODO: Why is this slower than numpy?
 
 def get_owlet_clusters(embeddings):
     embeddings = F.normalize(embeddings, p=2, dim=1)
-    dbscan = DBSCANTorch(eps=0.3, minPts=200, metric="euclidean")
+    dbscan = DBSCANTorch(eps=0.4, minPts=500, metric="euclidean")
     dbscan.fit(embeddings).cpu()
     clusters = torch.tensor(dbscan.predict(embeddings))
     unique_clusters = torch.unique(clusters)
