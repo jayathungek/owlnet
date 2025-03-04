@@ -142,7 +142,6 @@ def load_data(
         test_only=debug,
     )
     
-    print(dataset[0][0].shape)
     # This code generates the actual number of items that goes into each split using the user-supplied fractions
     tr_te = safe_split(len(dataset), train_test_split)
     train_split, test_split = random_split(dataset, tr_te)

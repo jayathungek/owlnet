@@ -82,7 +82,7 @@ class VisualiserInteractive:
         
         for i, owlet_cluster in enumerate(owlet_clusters):
             new_customdata = owlet_indices[i].tolist()
-            print(f"Adding {len(new_customdata)} customdata for {owlet_cluster.shape} points")
+            print(f"Adding {len(new_customdata)} points for Owlet {i + 1}")
             figw.add_trace(go.Scatter(
                 customdata=new_customdata,
                 x=owlet_cluster[:, 0],
@@ -161,8 +161,8 @@ class VisualiserInteractive:
             x=points[:, 0],
             y=points[:, 1],
             mode='markers',
-            marker=dict(size=marker_sz, symbol=marker_style, color="pink"),
-            name=f"Validation data",
+            marker=dict(size=marker_sz, symbol=marker_style, color="black"),
+            name=f"Val data",
         ))
     
     def pop_verification_trace(self):
