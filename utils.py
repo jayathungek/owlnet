@@ -162,7 +162,7 @@ class VisualiserInteractive:
             y=points[:, 1],
             mode='markers',
             marker=dict(size=marker_sz, symbol=marker_style, color="black"),
-            name=f"Val data",
+            name=f"Val pts",
         ))
     
     def pop_verification_trace(self):
