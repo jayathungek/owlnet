@@ -1,29 +1,28 @@
 import torch
-import time
-import matplotlib.pyplot as plt
+import math
 import ipywidgets as widgets
-from IPython.display import display, clear_output
 
 import torch.nn.functional as F
 from data import get_verification_dataloader, CollateFunc
 
 
 def create_embeds(model, dataloader):
+    model.eval()
     embeds = []
     specs = []
     specs_og = []
     for batch in dataloader:
-        data_specs, og_specs = batch
-        specs_og += og_specs.unbind()
-        specs += data_specs.unbind()
-        data_specs = data_specs.cuda()
-        embeds_batch = model(data_specs.cuda())
-        embeds.append(embeds_batch.detach().cpu())
+        with torch.no_grad():
+            data_specs, og_specs = batch
+            specs_og += og_specs.unbind()
+            specs += data_specs.unbind()
+            data_specs = data_specs.cuda()
+            embeds_batch = model(data_specs.cuda())
+            embeds.append(embeds_batch.detach().cpu())
     embeds = torch.cat(embeds)
     return embeds, specs, specs_og
 
 # Control flag
-auto_run = False
 total_ds_size = 3375
 hop_size = 50
 iteration = 0
@@ -35,17 +34,43 @@ window_start = 0
 progress = widgets.Label(value=f"█{'░'* (num_iterations - 1)}" )
 step_button = widgets.Button(description="Step")
 reset_button = widgets.Button(description="Reset")
+hop_size_input = widgets.Text(
+    description="Hop size:",
+    placeholder=f"{hop_size}"
+)
 
+def init_progress():
+    global progress
+    global progress_len
+    progress.value = f"█{'░'* (num_iterations - 1)}" 
+    
 
-def step_run(dataset, model, visualiser):
-    global auto_run
+def on_text_submit(change):
     global iteration
     global num_iterations
+    global total_ds_size
+    global hop_size 
+    global progress
+    v = int(change.value)
+    if v < total_ds_size:
+        hop_size = v
+    else:
+        hop_size = total_ds_size
+    
+    num_iterations = total_ds_size // hop_size
+    iteration = 0
+    init_progress()
+
+hop_size_input.on_submit(on_text_submit)
+
+def step_run(dataset, model, visualiser):
+    global iteration
+    global num_iterations
+    global progress
 
     if iteration > num_iterations - 1:
         iteration = 0
 
-    auto_run = False
     bar = ["░"] * num_iterations# Reset bar
     bar[iteration] = "█"  # Highlight only the window section
 
@@ -54,13 +79,11 @@ def step_run(dataset, model, visualiser):
     loop_iteration(dataset, model, visualiser)
 
 
-def reset(visualiser, progress_widget):
+def reset(visualiser):
     global iteration
-    global auto_run
     iteration = 0
-    progress_widget.value = f"█{'░'* (num_iterations - 1)}" 
-    auto_run = False
     visualiser.pop_verification_trace()
+    init_progress()
 
 
 # for start in range(0, total_ds_size, hop_size):
@@ -76,8 +99,9 @@ def loop_iteration(owlet_dataset, owlnet, visualiser):
     indices = [start, start + hop_size]
     verification_dl = get_verification_dataloader(owlet_dataset, indices, collate_func)
     validation_embeds, _, _ = create_embeds(owlnet, verification_dl)
-    visualiser.pop_verification_trace()
     validation_embeds = F.normalize(validation_embeds, p=2, dim=1)
+
+    visualiser.pop_verification_trace()
     visualiser.add_points(validation_embeds, 'x', 20)
     iteration += 1
 
