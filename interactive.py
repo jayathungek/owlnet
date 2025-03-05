@@ -32,6 +32,7 @@ window_start = 0
 
 # Buttons
 progress = widgets.Label(value=f"█{'░'* (num_iterations - 1)}" )
+progress_text = widgets.Label(value=f"Dataset slice [0 - {hop_size - 1}] of {total_ds_size}")
 step_button = widgets.Button(description="Step")
 reset_button = widgets.Button(description="Reset")
 hop_size_input = widgets.Text(
@@ -41,8 +42,12 @@ hop_size_input = widgets.Text(
 
 def init_progress():
     global progress
-    global progress_len
+    global progress_text
+    global hop_size
+    global total_ds_size
+    global num_iterations
     progress.value = f"█{'░'* (num_iterations - 1)}" 
+    progress_text.value = f"Dataset slice [0 - {hop_size - 1}] of {total_ds_size}"
     
 
 def on_text_submit(change):
@@ -67,6 +72,7 @@ def step_run(dataset, model, visualiser):
     global iteration
     global num_iterations
     global progress
+    global progress_text
 
     if iteration > num_iterations - 1:
         iteration = 0
@@ -76,6 +82,7 @@ def step_run(dataset, model, visualiser):
 
     # Update the label
     progress.value = "".join(bar)
+    progress_text.value = f"Dataset slice [{iteration * hop_size} - {(iteration * hop_size) + hop_size - 1}] of {total_ds_size}"
     loop_iteration(dataset, model, visualiser)
 
 
