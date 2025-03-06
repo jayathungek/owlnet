@@ -22,31 +22,77 @@ def create_embeds(model, dataloader):
     embeds = torch.cat(embeds)
     return embeds, specs, specs_og
 
+def get_img_data(img_path):
+    with open(img_path, "rb") as fh:
+        data = fh.read()
+    return data
+
 # Control flag
 total_ds_size = 3375
-hop_size = 50
+base_window_width = 20
+
+HOP_SIZES = [20, 30, 40, 50, 100, 200, 500]
+hop_size = base_window_width
 iteration = 0
 num_iterations = total_ds_size // hop_size
 collate_func = CollateFunc(spec_height=750)
+
 window_start = 0
+display_width = total_ds_size // base_window_width
+window_width = hop_size // base_window_width
 
 # Buttons
-progress = widgets.Label(value=f"█{'░'* (num_iterations - 1)}" )
+progress = widgets.Label(value=f"{'█' * window_width}{'░'* (display_width - window_width)}" )
 progress_text = widgets.Label(value=f"Dataset slice [0 - {hop_size - 1}] of {total_ds_size}")
 step_button = widgets.Button(description="Step")
 reset_button = widgets.Button(description="Reset")
-hop_size_input = widgets.Text(
+# hop_size_input = widgets.Text(
+#     description="Hop size:",
+#     placeholder=f"{hop_size}"
+# )
+hop_size_buttons = widgets.ToggleButtons(
+    options=HOP_SIZES,
     description="Hop size:",
-    placeholder=f"{hop_size}"
 )
+
+
+dataset_image = widgets.Image(
+    value=get_img_data("img/owlet_full_spectro_large.png"),
+    format="png",
+    width=1545,
+)
+
+
+def on_hop_select(change):
+    global iteration
+    global num_iterations
+    global total_ds_size
+    global hop_size 
+    global progress
+    global window_width
+
+    v = int(change["new"])
+    if v < total_ds_size:
+        hop_size = v
+    else:
+        hop_size = total_ds_size
+    
+    window_width = hop_size // base_window_width
+    num_iterations = total_ds_size // hop_size
+    iteration = 0
+    init_progress()
+
+hop_size_buttons.observe(on_hop_select, names="value")
 
 def init_progress():
     global progress
     global progress_text
     global hop_size
     global total_ds_size
-    global num_iterations
-    progress.value = f"█{'░'* (num_iterations - 1)}" 
+    global window_width
+    global display_width
+
+    progress.value  = f"{'█' * window_width}{'░'* (display_width - window_width)}"
     progress_text.value = f"Dataset slice [0 - {hop_size - 1}] of {total_ds_size}"
     
 
@@ -66,19 +112,24 @@ def on_text_submit(change):
     iteration = 0
     init_progress()
 
-hop_size_input.on_submit(on_text_submit)
+# hop_size_input.on_submit(on_text_submit)
 
 def step_run(dataset, model, visualiser):
     global iteration
     global num_iterations
     global progress
     global progress_text
+    global window_width
+    global display_width
 
     if iteration > num_iterations - 1:
         iteration = 0
 
-    bar = ["░"] * num_iterations# Reset bar
-    bar[iteration] = "█"  # Highlight only the window section
+    bar = ["░"] * display_width# Reset bar
+
+    bar_pos = iteration * window_width
+    for i in range(bar_pos,  bar_pos + window_width):
+        bar[i] = "█"  # Highlight only the window section
 
     # Update the label
     progress.value = "".join(bar)
