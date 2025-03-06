@@ -1,4 +1,4 @@
-from data_utils import *
+from utils import *
 from torch.utils.data import Dataset, DataLoader, random_split, Subset
 from torchvision.transforms.functional import resize
 

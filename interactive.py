@@ -1,9 +1,126 @@
 import torch
-import math
 import ipywidgets as widgets
 
 import torch.nn.functional as F
+from utils import get_label_colours, imshow_to_pil
 from data import get_verification_dataloader, CollateFunc
+from cluster import get_owlet_clusters
+from ipywidgets import HBox
+from IPython.display import display
+import plotly.graph_objects as go
+from torchvision import transforms
+
+
+TO_PIL = transforms.ToPILImage()
+
+
+class VisualiserInteractive:
+    def __init__(self, embeddings, melspecs, melspecs_og) -> None:
+        self.embeddings = embeddings
+        self.melspecs = melspecs
+        self.melspecs_og = melspecs_og
+        self.owlets = 0
+
+        owlet_clusters, owlet_indices = get_owlet_clusters(self.embeddings)
+        colours = get_label_colours(len(owlet_clusters))
+
+        
+        figw = go.FigureWidget()
+        
+        for i, owlet_cluster in enumerate(owlet_clusters):
+            new_customdata = owlet_indices[i].tolist()
+            print(f"Adding {len(new_customdata)} points for Owlet {i + 1}")
+            figw.add_trace(go.Scatter(
+                customdata=new_customdata,
+                x=owlet_cluster[:, 0],
+                y=owlet_cluster[:, 1],
+                mode='markers',
+                marker=dict(size=3, color=colours[i]),
+                name=f"Owlet {i + 1}",
+            ))
+            self.owlets += 1
+            
+
+
+        figw.update_layout(
+            title="Hover over points to view spectrogram",
+            hovermode="closest",
+            xaxis=dict(title="Component 1", scaleanchor="y"),  # Lock x-axis to y-axis scale
+            yaxis=dict(title="Component 2"),
+            width=600,  # Set fixed width
+            height=600,  # Set fixed height
+        )
+
+        image = go.Figure()
+        image.add_layout_image(
+            dict(
+                source=TO_PIL(torch.zeros(3, 128, 400)),
+                xref="x",
+                yref="y",
+                x=0,
+                y=3,
+                sizex=2,
+                sizey=2,
+                sizing="stretch",
+                opacity=1,
+                layer="below"
+            )
+        )
+
+        image.update_layout(
+            xaxis=dict(
+                showgrid=False,  # Hide grid lines
+                zeroline=False,  # Hide zero line
+                showticklabels=False,  # Hide tick labels
+            ),
+            yaxis=dict(
+                showgrid=False,  # Hide grid lines
+                zeroline=False,  # Hide zero line
+                showticklabels=False,  # Hide tick labels
+            ),
+            plot_bgcolor="white",  # Set the background to white (optional)
+            margin=dict(t=0, b=0, l=0, r=0),  # Remove any extra margins
+            xaxis_visible=False,  # Hide the x-axis
+            yaxis_visible=False,  # Hide the y-axis
+        )
+        imagew = go.FigureWidget(image)
+
+        def hover_fn(trace, point, selector):
+            if len(point.point_inds) > 0:
+                ind = point.point_inds[0]
+                spec = self.melspecs[ind]
+                imagew.update_layout(
+                    images=[
+                        dict(source=imshow_to_pil(spec)),
+                    ]
+                )
+
+
+            
+            
+        self.graph = HBox((figw, imagew))
+        for scatterplot in figw.data:
+            scatterplot.on_hover(hover_fn)
+
+    def add_points(self, points, marker_style, marker_sz):
+        figw, _ = self.graph.children
+        figw.add_trace(go.Scatter(
+            x=points[:, 0],
+            y=points[:, 1],
+            mode='markers',
+            marker=dict(size=marker_sz, symbol=marker_style, color="black"),
+            name=f"Val pts",
+        ))
+    
+    def pop_verification_trace(self):
+        figw, _ = self.graph.children
+        num_traces = len(figw.data)
+        if num_traces > self.owlets:
+            figw.data = figw.data[:num_traces - 1]
+
+    def show(self):
+        display(self.graph)
+        pass
 
 
 def create_embeds(model, dataloader):
@@ -162,5 +279,3 @@ def loop_iteration(owlet_dataset, owlnet, visualiser):
     visualiser.pop_verification_trace()
     visualiser.add_points(validation_embeds, 'x', 20)
     iteration += 1
-
-
