@@ -148,7 +148,7 @@ def get_img_data(img_path):
 total_ds_size = 3375
 base_window_width = 20
 
-HOP_SIZES = [20, 30, 40, 50, 100, 200, 500]
+HOP_SIZES = [20, 40, 60, 80, 100, 200, 300, 500]
 hop_size = base_window_width
 iteration = 0
 num_iterations = total_ds_size // hop_size
@@ -163,10 +163,6 @@ progress = widgets.Label(value=f"{'█' * window_width}{'░'* (display_width - 
 progress_text = widgets.Label(value=f"Dataset slice [0 - {hop_size - 1}] of {total_ds_size}")
 step_button = widgets.Button(description="Step")
 reset_button = widgets.Button(description="Reset")
-# hop_size_input = widgets.Text(
-#     description="Hop size:",
-#     placeholder=f"{hop_size}"
-# )
 hop_size_buttons = widgets.ToggleButtons(
     options=HOP_SIZES,
     description="Hop size:",
@@ -229,7 +225,6 @@ def on_text_submit(change):
     iteration = 0
     init_progress()
 
-# hop_size_input.on_submit(on_text_submit)
 
 def step_run(dataset, model, visualiser):
     global iteration
@@ -261,7 +256,6 @@ def reset(visualiser):
     init_progress()
 
 
-# for start in range(0, total_ds_size, hop_size):
 def loop_iteration(owlet_dataset, owlnet, visualiser):
     global iteration
     global hop_size
