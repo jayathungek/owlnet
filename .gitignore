@@ -1,4 +1,6 @@
 env_setup_done
 *.pth
 lotek_owl_data
+model_checkpoints/*
+!model_checkpoints/__init__.py
 __pycache__
