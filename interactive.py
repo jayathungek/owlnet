@@ -165,7 +165,7 @@ step_button = widgets.Button(description="Step")
 reset_button = widgets.Button(description="Reset")
 hop_size_buttons = widgets.ToggleButtons(
     options=HOP_SIZES,
-    description="Hop size:",
+    description="Window size (samples) :",
 )
 
 
