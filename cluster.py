@@ -1,10 +1,5 @@
 import torch
 import torch.nn.functional as F
-from sklearn.metrics import (
-    adjusted_mutual_info_score as AMI,
-    adjusted_rand_score as ARI,
-)
-
 
 
 class DBSCANBase:
@@ -15,10 +10,6 @@ class DBSCANBase:
 
     def fit(self, X):
         pass
-
-    def score(self, X, y):
-        y_pred = self.predict(X)
-        return (AMI(y, y_pred), ARI(y, y_pred))
 
     def predict(self, X):
         pass

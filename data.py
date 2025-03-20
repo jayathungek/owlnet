@@ -2,8 +2,6 @@ from utils import *
 from torch.utils.data import Dataset, DataLoader, random_split, Subset
 from torchvision.transforms.functional import resize
 
-
-# build dataset using torch
 class OwletDataset(Dataset):
     def  __init__(self,
                   data_dir,
