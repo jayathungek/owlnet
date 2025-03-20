@@ -4,7 +4,6 @@ from pathlib import Path
 
 from PIL import Image
 import matplotlib.pyplot as plt
-from umap import UMAP
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 import torch
@@ -14,6 +13,8 @@ from tqdm.notebook import tqdm
 import torchvision.transforms as trans
 
 
+
+DATA_DIR = "owl_data"
 
 def normalise(tensor):
     mean = tensor.mean()
@@ -174,7 +175,7 @@ def chop_file(filepath,
 
     
 def display_zero_crossings():
-    all_wavs = list(gather_data_files("lotek_owl_data", test_only=True))
+    all_wavs = list(gather_data_files(DATA_DIR, test_only=True))
     chunks_list = []
     for idx, file in enumerate(all_wavs):
         print(f"Processing file {file}")
@@ -223,11 +224,6 @@ def imshow_to_pil(image_array, cmap="viridis"):
     return pil_image
 
 def reduce_dimensions(embeddings):
-    # reducer =UMAP(n_components=2, metric="cosine")
-    # reducer.fit(embeddings)
-    # tsne_points = reducer.transform(embeddings)
-
-    
     reducer = PCA(n_components=2, svd_solver='auto')
     tsne_points = reducer.fit_transform(embeddings)
     return tsne_points
