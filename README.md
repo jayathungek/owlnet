@@ -11,7 +11,7 @@ Please ensure that you have [Miniconda](https://www.anaconda.com/docs/getting-st
     $ git clone https://github.com/jayathungek/owlnet.git
     $ cd owlnet
     ```
-1. **Setting up directories:** Create a folder named `owl_data` in the root directory of the project (i.e. `owlnet`). This is where your audio files should go. The program looks for `*.wav` files in this directory to build its dataset. If you have a model checkpoint, put it in the `model_checkpoints` folder.
+1. **Data and checkpoints:** Create a folder named `owl_data` in the root directory of the project (i.e. `owlnet`). This is where your audio files should go. The program looks for `*.wav` files in this directory to build its dataset. If you have a model checkpoint, put it in the `model_checkpoints` folder.
 1. **Installing dependencies**
     ```bash
     $ conda env create -f environment.yml
@@ -27,7 +27,7 @@ Please ensure that you have [Miniconda](https://www.anaconda.com/docs/getting-st
 If you would like to train your own model with different data or a modified architecture, please run `training.ipynb`
 
 ### Video card
-Typically, a video card (NVIDA) is required for training and inference. However if this is not possible on your system, please change line 18 in `utils.py` as indicated in that file. This is very much NOT recommended -- the demo will take ages to run and even longer to train. Please note: 
+Typically, a video card (NVIDA) is required for training and inference. However if this is not possible on your system, please change line 18 in `utils.py` as indicated in that file. This is very much NOT recommended -- the demo will take ages to run and even longer to train.
 
 ## Get the data and model checkpoint
 1. You can find the pretrained model checkpoint here: [model_3584.datapoints_105.epochs.pth](https://drive.google.com/file/d/1hK8d2c_IYS1dbC6R4o8hvzeww6o08kmn/view?usp=sharing).
