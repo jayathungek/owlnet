@@ -26,7 +26,10 @@ Please ensure that you have [Miniconda](https://www.anaconda.com/docs/getting-st
 ### Optional: Training from scratch 
 If you would like to train your own model with different data or a modified architecture, please run `training.ipynb`
 
-## Get the data and model checkpoint
-You can find the pretrained model checkpoint here: [model_3584.datapoints_105.epochs.pth](https://drive.google.com/file/d/1hK8d2c_IYS1dbC6R4o8hvzeww6o08kmn/view?usp=sharing)  
+### Video card
+Typically, a video card (NVIDA) is required for training and inference. However if this is not possible on your system, please change line 18 in `utils.py` as indicated in that file. This is very much NOT recommended -- the demo will take ages to run and even longer to train. Please note: 
 
-Please contact me [here](mailto:kjayathunge@bournemouth.ac.uk) to request access to the barn owl recordings. 
+## Get the data and model checkpoint
+1. You can find the pretrained model checkpoint here: [model_3584.datapoints_105.epochs.pth](https://drive.google.com/file/d/1hK8d2c_IYS1dbC6R4o8hvzeww6o08kmn/view?usp=sharing).
+
+1. Please contact me [here](mailto:kjayathunge@bournemouth.ac.uk) to request access to the barn owl recordings. 

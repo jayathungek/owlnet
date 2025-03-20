@@ -2,7 +2,7 @@ import torch
 import ipywidgets as widgets
 
 import torch.nn.functional as F
-from utils import get_label_colours, imshow_to_pil
+from utils import get_label_colours, imshow_to_pil, DEVICE
 from data import get_verification_dataloader, CollateFunc
 from cluster import get_owlet_clusters
 from ipywidgets import HBox
@@ -133,8 +133,8 @@ def create_embeds(model, dataloader):
             data_specs, og_specs = batch
             specs_og += og_specs.unbind()
             specs += data_specs.unbind()
-            data_specs = data_specs.cuda()
-            embeds_batch = model(data_specs.cuda())
+            data_specs = data_specs.to(DEVICE)
+            embeds_batch = model(data_specs.to(DEVICE))
             embeds.append(embeds_batch.detach().cpu())
     embeds = torch.cat(embeds)
     return embeds, specs, specs_og
@@ -144,7 +144,6 @@ def get_img_data(img_path):
         data = fh.read()
     return data
 
-# Control flag
 total_ds_size = 3375
 base_window_width = 20
 

@@ -1,5 +1,6 @@
 import torch
 import torch.nn.functional as F
+from utils import DEVICE
 
 
 class DBSCANBase:
@@ -18,14 +19,14 @@ class DBSCANBase:
 class DBSCANTorch(DBSCANBase): # TODO: Why is this slower than numpy?
     def fit(self, X):
         if type(X) is not torch.Tensor:
-            self._X = torch.tensor(X).cuda()
+            self._X = torch.tensor(X).to(DEVICE)
         else:
-            self._X = X.cuda()
+            self._X = X.to(DEVICE)
 
         dist_matrix = self._get_distance_matrix()
         cluster = 1
         n_objs = self._X.shape[0]
-        labels = torch.zeros(n_objs).cuda()
+        labels = torch.zeros(n_objs).to(DEVICE)
 
         for i in range(n_objs):
             if not labels[i]:
@@ -45,7 +46,7 @@ class DBSCANTorch(DBSCANBase): # TODO: Why is this slower than numpy?
 
     def predict(self, X, as_numpy=True):
         # X = torch.tensor(X[None, ...], device=self._X.device)
-        X = X.unsqueeze(0).cuda()
+        X = X.unsqueeze(0).to(DEVICE)
         centroids = self._centroids[:, None, ...]
         all_diff = X - centroids
         all_dist = torch.einsum("...k, ...k -> ...", all_diff, all_diff).sqrt()
