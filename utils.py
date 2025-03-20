@@ -80,7 +80,7 @@ def display_audio_file(wav_path):
 
 
 def gather_data_files(data_dir, test_only):
-    pattern = 'test.wav' if test_only else '1*.wav'
+    pattern = 'test.wav' if test_only else '*.wav'
     data_dir = Path(data_dir).resolve()
     all_files = data_dir.glob(pattern)
     return all_files

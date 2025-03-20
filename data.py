@@ -179,7 +179,6 @@ def load_toy_data(
         return padded, padded_og
 
     assert sum(train_test_split) == 1, "Train and test fractions should sum to 1!"  
-    # dataset = OwletDataset(data_dir, silence_threshold=0.7, min_call_len=10, max_call_len=200)
     dataset = ToyDataset(2000, 0.2, 256, 70)
     
     # This code generates the actual number of items that goes into each split using the user-supplied fractions
