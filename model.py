@@ -7,9 +7,10 @@ from torch.nn import TransformerEncoder, TransformerEncoderLayer
 
 
 class OwlNet(nn.Module):
-    def __init__(self, embedding_dim, dropout, use_attention=True):
+    def __init__(self, embedding_dim, dropout, use_attention=False):
         super().__init__()
 
+        self.out_dim = 128
         self.use_attention = use_attention
         self.conv1 = nn.Conv2d(1, 32, kernel_size=(150, 64), stride=(2, 2), padding=2)
         self.conv2 = nn.Conv2d(32, 64, kernel_size=(8, 8), stride=(2, 2), padding=1)  
@@ -22,13 +23,13 @@ class OwlNet(nn.Module):
         self.bn4 = nn.BatchNorm2d(128)
 
         if use_attention:
-            encoder_layer = TransformerEncoderLayer(128, 8)
-            self.attention_module = TransformerEncoder(encoder_layer, num_layers=6)
+            encoder_layer = TransformerEncoderLayer(self.out_dim, 8)
+            self.attention_module = TransformerEncoder(encoder_layer, num_layers=6, enable_nested_tensor=False)
 
         self.dropout = nn.Dropout(dropout)
         self.gap = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Sequential(
-            nn.Linear(128, 256),
+            nn.Linear(self.out_dim, 256),
             nn.BatchNorm1d(256),
             nn.ReLU(),
             nn.Linear(256, 512),
