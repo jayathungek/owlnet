@@ -60,7 +60,8 @@ class DBSCANTorch(DBSCANBase): # TODO: Why is this slower than numpy?
         if self._metric == "euclidean":
             # reimplement cdist
             diff_mat = self._X[:, None] - self._X[None, :]
-            return torch.einsum("...k, ...k -> ...", diff_mat, diff_mat).sqrt()
+            diff_mat = torch.einsum("...k, ...k -> ...", diff_mat, diff_mat).sqrt()
+            return diff_mat / diff_mat.max()
         elif self._metric == "cosine":
             diff_mat = torch.matmul(self._X, self._X.T)
             diff_mat = (diff_mat + 1.0) / 2
@@ -105,7 +106,7 @@ class DBSCANTorch(DBSCANBase): # TODO: Why is this slower than numpy?
 
 def get_owlet_clusters(embeddings):
     embeddings = F.normalize(embeddings, p=2, dim=1)
-    dbscan = DBSCANTorch(eps=0.4, minPts=500, metric="euclidean")
+    dbscan = DBSCANTorch(eps=0.2, minPts=200, metric="euclidean")
     dbscan.fit(embeddings).cpu()
     clusters = torch.tensor(dbscan.predict(embeddings))
     unique_clusters = torch.unique(clusters)

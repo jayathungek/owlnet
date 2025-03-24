@@ -1,12 +1,16 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn import TransformerEncoder, TransformerEncoderLayer
+
+
 
 
 class OwlNet(nn.Module):
-    def __init__(self, embedding_dim, dropout):
+    def __init__(self, embedding_dim, dropout, use_attention=True):
         super().__init__()
 
+        self.use_attention = use_attention
         self.conv1 = nn.Conv2d(1, 32, kernel_size=(150, 64), stride=(2, 2), padding=2)
         self.conv2 = nn.Conv2d(32, 64, kernel_size=(8, 8), stride=(2, 2), padding=1)  
         self.conv3 = nn.Conv2d(64, 128, kernel_size=(5, 5), stride=(2, 2), padding=1) 
@@ -16,6 +20,10 @@ class OwlNet(nn.Module):
         self.bn2 = nn.BatchNorm2d(64)
         self.bn3 = nn.BatchNorm2d(128)
         self.bn4 = nn.BatchNorm2d(128)
+
+        if use_attention:
+            encoder_layer = TransformerEncoderLayer(128, 8)
+            self.attention_module = TransformerEncoder(encoder_layer, num_layers=6)
 
         self.dropout = nn.Dropout(dropout)
         self.gap = nn.AdaptiveAvgPool2d((1, 1))
@@ -36,6 +44,8 @@ class OwlNet(nn.Module):
 
         x = self.gap(x)
         x = torch.flatten(x, start_dim=1) 
+        if self.use_attention:
+            x = self.attention_module(x)
         x = self.dropout(x)
         x = self.fc(x)
 
