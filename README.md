@@ -31,8 +31,8 @@ Typically, a video card (NVIDA) is required for training and inference. However 
 
 ## Data and checkpoints
 Follow the links below to get access to files that are needed to run the simulation
-| Description                       	| Link                                                                                                                               	|
-|-----------------------------------	|------------------------------------------------------------------------------------------------------------------------------------	|
-| Model checkpoint                  	| [model.v1_3584.datapoints_105.epochs.pth](https://drive.google.com/file/d/1hK8d2c_IYS1dbC6R4o8hvzeww6o08kmn/view?usp=sharing)      	|
-| Model checkpoint (with attention) 	| [model.attn.v4_3584.datapoints_110.epochs.pth](https://drive.google.com/file/d/1qWRC04NqIU8Y1naV3Y1KSpAoFeE3g7_z/view?usp=sharing) 	|
-| Owl dataset                       	| [Email me](mailto:kjayathunge@bournemouth.ac.uk) to get access                                                                     	|
+| Description                       | Link                                                                                                                               | Notes
+|-----------------------------------|------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------
+| Model checkpoint                  | [model.v1_3584.datapoints_105.epochs.pth](https://drive.google.com/file/d/1hK8d2c_IYS1dbC6R4o8hvzeww6o08kmn/view?usp=sharing)      | Version presented at CAIREES 2025
+| Model checkpoint (with attention) | [model.attn.v4_3584.datapoints_110.epochs.pth](https://drive.google.com/file/d/1qWRC04NqIU8Y1naV3Y1KSpAoFeE3g7_z/view?usp=sharing) | Experimental
+| Owl dataset                       | [Email me](mailto:kjayathunge@bournemouth.ac.uk) to get access                                                                     | -
