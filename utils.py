@@ -17,7 +17,7 @@ import torchvision.transforms as trans
 DATA_DIR = "owl_data"
 DEVICE = "cuda"       # Change this line to DEVICE = "cpu" for cpu training/inference. Not recommended
 CHECKPOINT_DIR = "model_checkpoints"
-USE_ATTN = True
+USE_ATTN = False
 
 
 def normalise(tensor):
