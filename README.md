@@ -23,22 +23,20 @@ Please ensure that you have [Miniconda](https://www.anaconda.com/docs/getting-st
     ```
     This will open a browser window from which you can select the notebook you wish to run. If you just want to run the demo, this is `owlnet_demo.ipynb`. Run all the cells in order.
 
-### Optional
-## Training from scratch 
+1. **Exporting to CSV** Navigate to the root directory of the project and run `python export.py` according to your specifications.
+    ```bash
+    usage: python export.py [-h] [-c CONFIG] [-m MODEL] filename
+    positional arguments:
+      filename: name to use for saving the CSV file. Will be saved to the exports/ dir
+
+    options:
+      -c CONFIG, --config CONFIG: the path to the config.json file
+      -m MODEL, --model MODEL: the name of the model you'd like to use
+    ```
+### Optional: Training from scratch 
 
 If you would like to train your own model with different data or a modified architecture, please run `training.ipynb`. You may also want to experiment with using the version of the model that includes attention layers. To do this, set the `USE_ATTN` variable in `utils.py`. This will also automatically select the correct model checkpoint, should you have it. 
 
-## Exporting data to CSV
-Navigate to the root directory of the project and run `python export.py` according to your specifications.
-```bash
-usage: python export.py [-h] [-c CONFIG] [-m MODEL] filename
-positional arguments:
-  filename: name to use for saving the CSV file. Will be saved to the exports/ dir
-
-options:
-  -c CONFIG, --config CONFIG: the path to the config.json file
-  -m MODEL, --model MODEL: the name of the model you'd like to use
-```
 
 
 ### Video card
