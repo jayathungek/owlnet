@@ -1,7 +1,10 @@
 import io
+import json
 import colorsys
 from pathlib import Path
 
+from model import OwlNet
+import torch.nn as nn
 from PIL import Image
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
@@ -9,15 +12,21 @@ import matplotlib.pyplot as plt
 import torch
 import torchaudio
 import torch.nn.functional as F
-from tqdm.notebook import tqdm
 import torchvision.transforms as trans
 
 
+try:
+    from IPython import get_ipython
+    ip = get_ipython()
+    if ip is None:
+        # we have IPython installed but not running from IPython
+        from tqdm import tqdm
+    else:
+        from tqdm.notebook import tqdm
+except:
+    # We do not even have IPython installed
+    from tqdm import tqdm
 
-DATA_DIR = "owl_data"
-DEVICE = "cuda"       # Change this line to DEVICE = "cpu" for cpu training/inference. Not recommended
-CHECKPOINT_DIR = "model_checkpoints"
-USE_ATTN = False
 
 
 def normalise(tensor):
@@ -161,7 +170,7 @@ def chop_file(filepath,
               min_len=5, max_len=200,
               display=False,
     ):
-    waveform, _ = torchaudio.load(filepath)
+    waveform, sample_rate = torchaudio.load(filepath)
     melspec = get_melspec(waveform)
     chunk_indices = get_zero_crossing_indices(melspec, zero_threshold, min_len, max_len)
     chunks_normal = []
@@ -178,8 +187,8 @@ def chop_file(filepath,
     return chunks, chunks_normal
 
     
-def display_zero_crossings():
-    all_wavs = list(gather_data_files(DATA_DIR, test_only=True))
+def display_zero_crossings(config):
+    all_wavs = list(gather_data_files(config['data_dir'], test_only=True))
     chunks_list = []
     for idx, file in enumerate(all_wavs):
         print(f"Processing file {file}")
@@ -248,3 +257,26 @@ def get_label_colours(n):
 
     return colors
     
+
+def load_config(config_path):
+    with open(config_path) as fh:
+        config_dict = json.load(fh)
+    return config_dict
+
+    
+def get_model(config, checkpoint_name=None, attention=False):
+    drop = config["drop"]
+    embed_sz = config["embed_sz"]
+    device = config["device"]
+    checkpoint_dir = config["checkpoint_dir"]
+    model_name = f"{checkpoint_dir}/{checkpoint_name}"
+
+    owlnet_dict = torch.load(model_name, map_location=torch.device(device))
+    if device == "cuda":
+        owlnet = nn.DataParallel(OwlNet(embed_sz, drop, use_attention=attention)).to(device)
+        owlnet.module.load_state_dict(owlnet_dict)
+    else:
+        owlnet = OwlNet(embed_sz, drop, use_attention=attention).to(device)
+        owlnet.load_state_dict(owlnet_dict)
+    return owlnet
+        
