@@ -2,7 +2,7 @@ import torch
 import ipywidgets as widgets
 
 import torch.nn.functional as F
-from utils import get_label_colours, imshow_to_pil, DEVICE
+from utils import get_label_colours, imshow_to_pil, reduce_dimensions
 from data import get_verification_dataloader, CollateFunc
 from cluster import get_owlet_clusters
 from ipywidgets import HBox
@@ -15,13 +15,13 @@ TO_PIL = transforms.ToPILImage()
 
 
 class VisualiserInteractive:
-    def __init__(self, embeddings, melspecs, melspecs_og) -> None:
+    def __init__(self, config, embeddings, melspecs, melspecs_og) -> None:
         self.embeddings = embeddings
         self.melspecs = melspecs
         self.melspecs_og = melspecs_og
         self.owlets = 0
 
-        owlet_clusters, owlet_indices = get_owlet_clusters(self.embeddings)
+        owlet_clusters, owlet_indices = get_owlet_clusters(config, self.embeddings)
         colours = get_label_colours(len(owlet_clusters))
 
         
@@ -123,7 +123,7 @@ class VisualiserInteractive:
         pass
 
 
-def create_embeds(model, dataloader):
+def create_embeds(config, model, dataloader):
     model.eval()
     embeds = []
     specs = []
@@ -133,8 +133,8 @@ def create_embeds(model, dataloader):
             data_specs, og_specs = batch
             specs_og += og_specs.unbind()
             specs += data_specs.unbind()
-            data_specs = data_specs.to(DEVICE)
-            embeds_batch = model(data_specs.to(DEVICE))
+            data_specs = data_specs.to(config['device'])
+            embeds_batch = model(data_specs.to(config['device']))
             embeds.append(embeds_batch.detach().cpu())
     embeds = torch.cat(embeds)
     return embeds, specs, specs_og
@@ -173,6 +173,14 @@ dataset_image = widgets.Image(
     format="png",
     width=1545,
 )
+
+
+def get_all_validation_embeds(config, owlnet, owlet_dataset, collate_func):
+    verification_dl = get_verification_dataloader(owlet_dataset, None, collate_func)
+    validation_embeds, _, _ = create_embeds(config, owlnet, verification_dl)
+    validation_embeds = F.normalize(validation_embeds, p=2, dim=1)
+    embeddings_2d = reduce_dimensions(validation_embeds)
+    return embeddings_2d
 
 
 def on_hop_select(change):
@@ -225,7 +233,7 @@ def on_text_submit(change):
     init_progress()
 
 
-def step_run(dataset, model, visualiser):
+def step_run(visualiser, all_val_embeds):
     global iteration
     global num_iterations
     global progress
@@ -245,7 +253,7 @@ def step_run(dataset, model, visualiser):
     # Update the label
     progress.value = "".join(bar)
     progress_text.value = f"Dataset slice [{iteration * hop_size} - {(iteration * hop_size) + hop_size - 1}] of {total_ds_size}"
-    loop_iteration(dataset, model, visualiser)
+    loop_iteration(visualiser, all_val_embeds)
 
 
 def reset(visualiser):
@@ -255,7 +263,7 @@ def reset(visualiser):
     init_progress()
 
 
-def loop_iteration(owlet_dataset, owlnet, visualiser):
+def loop_iteration(visualiser, all_embeds):
     global iteration
     global hop_size
     global total_ds_size
@@ -264,10 +272,7 @@ def loop_iteration(owlet_dataset, owlnet, visualiser):
 
     start = iteration * hop_size
     hop_size = min(total_ds_size - start, hop_size)
-    indices = [start, start + hop_size]
-    verification_dl = get_verification_dataloader(owlet_dataset, indices, collate_func)
-    validation_embeds, _, _ = create_embeds(owlnet, verification_dl)
-    validation_embeds = F.normalize(validation_embeds, p=2, dim=1)
+    validation_embeds = all_embeds[start: start + hop_size]
 
     visualiser.pop_verification_trace()
     visualiser.add_points(validation_embeds, 'x', 20)

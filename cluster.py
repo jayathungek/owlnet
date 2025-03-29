@@ -1,13 +1,15 @@
 import torch
 import torch.nn.functional as F
-from utils import DEVICE
+
+from utils import reduce_dimensions
 
 
 class DBSCANBase:
-    def __init__(self, eps, minPts, metric="euclidean"):
+    def __init__(self, config, eps, minPts, metric="euclidean"):
         self._eps = eps
         self._minPts = minPts
         self._metric = metric
+        self.config = config
 
     def fit(self, X):
         pass
@@ -19,14 +21,14 @@ class DBSCANBase:
 class DBSCANTorch(DBSCANBase): # TODO: Why is this slower than numpy?
     def fit(self, X):
         if type(X) is not torch.Tensor:
-            self._X = torch.tensor(X).to(DEVICE)
+            self._X = torch.tensor(X).to(self.config['device'])
         else:
-            self._X = X.to(DEVICE)
+            self._X = X.to(self.config['device'])
 
         dist_matrix = self._get_distance_matrix()
         cluster = 1
         n_objs = self._X.shape[0]
-        labels = torch.zeros(n_objs).to(DEVICE)
+        labels = torch.zeros(n_objs).to(self.config['device'])
 
         for i in range(n_objs):
             if not labels[i]:
@@ -46,7 +48,7 @@ class DBSCANTorch(DBSCANBase): # TODO: Why is this slower than numpy?
 
     def predict(self, X, as_numpy=True):
         # X = torch.tensor(X[None, ...], device=self._X.device)
-        X = X.unsqueeze(0).to(DEVICE)
+        X = X.unsqueeze(0).to(self.config['device'])
         centroids = self._centroids[:, None, ...]
         all_diff = X - centroids
         all_dist = torch.einsum("...k, ...k -> ...", all_diff, all_diff).sqrt()
@@ -104,13 +106,14 @@ class DBSCANTorch(DBSCANBase): # TODO: Why is this slower than numpy?
 
 
 
-def get_owlet_clusters(embeddings):
+def get_owlet_clusters(config, embeddings):
     embeddings = F.normalize(embeddings, p=2, dim=1)
-    dbscan = DBSCANTorch(eps=0.2, minPts=200, metric="euclidean")
+    dbscan = DBSCANTorch(config, eps=0.2, minPts=200, metric="euclidean")
     dbscan.fit(embeddings).cpu()
     clusters = torch.tensor(dbscan.predict(embeddings))
     unique_clusters = torch.unique(clusters)
     indices = torch.tensor(list(range(len(embeddings))))
+    embeddings = reduce_dimensions(embeddings)
 
 
     ret_clusters = []

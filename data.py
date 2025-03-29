@@ -40,7 +40,12 @@ class OwletDataset(Dataset):
         return self.dataset[idx][0], self.dataset[idx][1]
 
 def get_verification_dataloader(full_dataset, verification_subset, collate_fn):
-    start, end = verification_subset
+    if verification_subset is not None:
+        start, end = verification_subset
+    else:
+        start = 0
+        end = len(full_dataset)
+
     indices = list(range(start, end))
     verification_dataset = Subset(full_dataset, indices)
     dataloader = DataLoader(

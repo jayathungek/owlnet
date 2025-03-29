@@ -22,6 +22,8 @@ class OwlNet(nn.Module):
         self.bn3 = nn.BatchNorm2d(128)
         self.bn4 = nn.BatchNorm2d(128)
 
+        # TODO: for some reason, using attention breaks the validation 
+        # visualisation tool. I have no idea why this happens
         if use_attention:
             encoder_layer = TransformerEncoderLayer(self.out_dim, 8, batch_first=True)
             self.attention_module = TransformerEncoder(encoder_layer, num_layers=6, enable_nested_tensor=False)
