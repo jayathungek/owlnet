@@ -23,7 +23,7 @@ Please ensure that you have [Miniconda](https://www.anaconda.com/docs/getting-st
     ```
     This will open a browser window from which you can select the notebook you wish to run. If you just want to run the demo, this is `owlnet_demo.ipynb`. Run all the cells in order.
 
-1. **Exporting to CSV** Navigate to the root directory of the project and run `python export.py` according to your specifications.
+1. **Exporting to CSV:** Navigate to the root directory of the project and run `python export.py` according to your specifications.
     ```bash
     usage: python export.py [-h] [-c CONFIG] [-m MODEL] filename
     positional arguments:
