@@ -5,3 +5,5 @@ owl_data
 model_checkpoints/*
 !model_checkpoints/__init__.py
 __pycache__
+exports/*
+!exports/__init__.py
