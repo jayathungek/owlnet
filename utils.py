@@ -51,15 +51,15 @@ def process_melspec(melspec):
     return norm
     
 
-def get_melspec(waveform, max_freq=750):
+def get_melspec(config, waveform):
     spectrogram = torchaudio.transforms.Spectrogram(
-        n_fft=4096,
-        hop_length=1024,
+        n_fft=config['n_fft'],
+        hop_length=config['hop_length'],
         power=2.0
     )
     mel_spec = spectrogram(waveform)
     mel_spec = torchaudio.transforms.AmplitudeToDB()(mel_spec)
-    mel_spec = normalise(mel_spec)[:, :max_freq, :]
+    mel_spec = normalise(mel_spec)[:, :config['max_freq'], :]
     return mel_spec
 
 
@@ -80,7 +80,7 @@ def display_melspec(melspec, crossings=None, size=(10, 4), colorbar=True):
     plt.show() 
 
 
-def display_audio_file(wav_path):
+def display_audio_file(config, wav_path):
     waveform, _ = torchaudio.load(wav_path)
     plt.figure(figsize=(10, 4))
     plt.plot(waveform.t().numpy())  # Convert PyTorch tensor to NumPy
@@ -88,14 +88,16 @@ def display_audio_file(wav_path):
     plt.xlabel("Time")
     plt.ylabel("Amplitude")
     plt.show()
-    mel_spec_db = get_melspec(waveform)
+    mel_spec_db = get_melspec(config, waveform)
     display_melspec(mel_spec_db)
 
 
 def gather_data_files(data_dir, test_only):
-    pattern = 'test.wav' if test_only else '*.wav'
     data_dir = Path(data_dir).resolve()
-    all_files = data_dir.glob(pattern)
+    if test_only:
+        all_files = data_dir.glob("test.wav")
+    else:
+        all_files = [f for f in data_dir.glob("*.wav") if f.name != "test.wav"]
     return all_files
     
 
@@ -165,35 +167,47 @@ def show_batch(image_batch, title="Image batch", size=10):
     
     
     
-def chop_file(filepath,
-              zero_threshold=0.7,
-              min_len=5, max_len=200,
-              display=False,
-    ):
+def chop_file(
+    config,
+    filepath,
+    display=False,
+):
     waveform, sample_rate = torchaudio.load(filepath)
-    melspec = get_melspec(waveform)
-    chunk_indices = get_zero_crossing_indices(melspec, zero_threshold, min_len, max_len)
+    melspec = get_melspec(config, waveform)
+    chunk_indices = get_zero_crossing_indices(
+        melspec,
+        config['zero_threshold'],
+        config['min_call_len'],
+        config['max_call_len']
+    )
     chunks_normal = []
     chunks = []
+    chunks_crossing_times = []
+    hop_size = config['hop_length']
     for i in tqdm(range(0, len(chunk_indices), 2)):
         start = chunk_indices[i]
         end = chunk_indices[i + 1]
+        start_time = start * (hop_size / sample_rate)
+        end_time = end * (hop_size / sample_rate)
         chunk = melspec[:, :, start:end]
         chunks_normal.append(chunk)
         chunk = process_melspec(chunk)
         chunks.append(chunk)
+        chunks_crossing_times.append([start_time, end_time])
     if display:
         display_melspec(melspec, chunk_indices)
-    return chunks, chunks_normal
+    return chunks, chunks_normal, chunks_crossing_times
 
     
 def display_zero_crossings(config):
     all_wavs = list(gather_data_files(config['data_dir'], test_only=True))
     chunks_list = []
+    chunk_crossing_times_list = []
     for idx, file in enumerate(all_wavs):
         print(f"Processing file {file}")
-        chunks, original_chunks = chop_file(file, display=True)
+        chunks, original_chunks, chunk_crossing_times = chop_file(config, file, display=True)
         chunks_list += chunks
+        chunk_crossing_times_list.append(chunk_crossing_times)
         
     max_time = 0
     height = chunks_list[0].shape[1]
@@ -269,7 +283,7 @@ def get_model(config, checkpoint_name=None, attention=False):
     embed_sz = config["embed_sz"]
     device = config["device"]
     checkpoint_dir = config["checkpoint_dir"]
-    model_name = f"{checkpoint_dir}/{checkpoint_name}"
+    model_name = f"{checkpoint_dir}/{checkpoint_name}.pth"
 
     owlnet_dict = torch.load(model_name, map_location=torch.device(device))
     if device == "cuda":

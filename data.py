@@ -3,33 +3,21 @@ from torch.utils.data import Dataset, DataLoader, random_split, Subset
 from torchvision.transforms.functional import resize
 
 class OwletDataset(Dataset):
-    def  __init__(self,
-                  data_dir,
-                  silence_threshold=0.5,
-                  min_call_len=5, max_call_len=25,
-                  test_only=False,
-        ):
+    def  __init__(self, config):
         super().__init__()
-        self.data_dir = data_dir
-        self.silence_threshold = silence_threshold
-        self.min_call_len = min_call_len
-        self.max_call_len = max_call_len
-        self.test_only = test_only
+        self.config = config
         self.dataset = self.prepare_data()
 
-
     def prepare_data(self):
-        all_wavs = list(gather_data_files(self.data_dir, test_only=self.test_only))
+        all_wavs = list(gather_data_files(self.config['data_dir'], test_only=self.config["debug"]))
         chunks_list = []
         for file in all_wavs:
             print(f"Processing file {file.stem}")
-            chunks, chunks_original = chop_file(
+            chunks, chunks_original, chunks_crossing_times = chop_file(
+                self.config,
                 file,
-                zero_threshold=self.silence_threshold,
-                min_len=self.min_call_len,
-                max_len=self.max_call_len,
             )
-            chunks_list += list(zip(chunks, chunks_original))
+            chunks_list += list(zip(chunks, chunks_original, chunks_crossing_times))
 
         return chunks_list
 
@@ -37,7 +25,7 @@ class OwletDataset(Dataset):
         return len(self.dataset)
                 
     def __getitem__(self, idx):
-        return self.dataset[idx][0], self.dataset[idx][1]
+        return self.dataset[idx][0], self.dataset[idx][1], self.dataset[idx][2]
 
 def get_verification_dataloader(full_dataset, verification_subset, collate_fn):
     if verification_subset is not None:
@@ -105,14 +93,15 @@ class CollateFunc:
     
     def __call__(self, batch):
         max_len = 0
-        for spec, og_spec  in batch:
+        for spec, og_spec, _ in batch:
             time_len = spec.shape[-1]
             max_len = time_len if time_len > max_len else max_len
             
         
         padded = []
         padded_og = []
-        for spec, og_spec in batch:
+        crossing_times_list = []
+        for spec, og_spec, crossing_times in batch:
             padding_needed = max_len - spec.shape[2]
             if padding_needed > 0:
                 # spec = F.pad(spec, (0, padding_needed), "constant", 0)
@@ -123,45 +112,34 @@ class CollateFunc:
 
             padded.append(spec)
             padded_og.append(og_spec)
+            crossing_times_list.append(crossing_times)
             
         padded = torch.cat(padded).unsqueeze(1)
         padded_og = torch.cat(padded_og).unsqueeze(1)
-        return padded, padded_og
+        return padded, padded_og, crossing_times_list
 
 
-def load_data(
-    data_dir, 
-    spec_height,
-    batch_sz=16,
-    train_test_split=[0.8, 0.2],
-    debug=False,
-):
-
-    assert sum(train_test_split) == 1, "Train and test fractions should sum to 1!"  
-    dataset = OwletDataset(
-        data_dir,
-        silence_threshold=0.7,
-        min_call_len=10, max_call_len=200,
-        test_only=debug,
-    )
+def load_data(config):
+    assert sum(config['data_split']) == 1, "Train and test fractions should sum to 1!"  
+    dataset = OwletDataset(config)
     
     # This code generates the actual number of items that goes into each split using the user-supplied fractions
-    tr_te = safe_split(len(dataset), train_test_split)
+    tr_te = safe_split(len(dataset), config['data_split'])
     train_split, test_split = random_split(dataset, tr_te)
 
-    collate_func = CollateFunc(spec_height=spec_height)
+    collate_func = CollateFunc(spec_height=config['spec_height'])
     
     train_dl = DataLoader(
         train_split, 
         collate_fn=collate_func,
-        batch_size=batch_sz, 
+        batch_size=config['batch_sz'], 
         shuffle=True, 
     )            
 
     test_dl = DataLoader(
         test_split, 
         collate_fn=collate_func,
-        batch_size=batch_sz, 
+        batch_size=config['batch_sz'], 
         shuffle=False, 
     )
 

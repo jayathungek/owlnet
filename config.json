@@ -2,11 +2,21 @@
     "data_dir": "owl_data",
     "checkpoint_dir": "model_checkpoints",
     "exports_dir": "exports",
+
     "drop": 0.0,
     "embed_sz": 64,
-    "spec_height": 750,
     "batch_sz": 512,
     "data_split": [1.0, 0.0],
+    "spec_height": 750,
+
+    "max_freq": 750,
+    "n_fft": 4096,
+    "hop_length": 1024,
+
+    "zero_threshold": 0.7,
+    "min_call_len": 10, 
+    "max_call_len": 200,
+
     "debug": false,
     "use_attn": false,
     "device": "cuda"
