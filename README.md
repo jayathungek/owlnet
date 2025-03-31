@@ -1,9 +1,11 @@
 # Barn Owl Vocal Individuality (VI) Demo
-![](./img/banner.jpg)
+<!-- ![](./img/banner.jpg) -->
+![](./img/owlnet_demo.gif)  
 
 This codebase explores patterns in large amounts of barn owl audio. We use spectrogram analysis and a zero-crossing algorithm to isolate individual owl chirps. Since the calls are naturally spaced—possibly due to a feeding negotiation tactic—it’s easy to segment them without overlap. The result is a large dataset of distinct chirps, which can be used for clustering and classification. The repo includes code for data loading, feature extraction, and visualisation to analyse vocalisation patterns. This project was featured in an AI for sustainability conference (CAIREES 2025). 
  
 ## Run it yourself
+
 Please ensure that you have [Miniconda](https://www.anaconda.com/docs/getting-started/miniconda/install) and [git](https://git-scm.com/downloads) installed on your system before starting.
 
 1. **Getting files**: Navigate to your working directory. Then:
@@ -33,6 +35,7 @@ Please ensure that you have [Miniconda](https://www.anaconda.com/docs/getting-st
       -c CONFIG, --config CONFIG: the path to the config.json file
       -m MODEL, --model MODEL: the name of the model you'd like to use
     ```
+
 ### Optional: Training from scratch 
 
 If you would like to train your own model with different data or a modified architecture, please run `training.ipynb`. You may also want to experiment with using the version of the model that includes attention layers. To do this, set the `USE_ATTN` variable in `utils.py`. This will also automatically select the correct model checkpoint, should you have it. 
