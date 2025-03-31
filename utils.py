@@ -278,12 +278,13 @@ def load_config(config_path):
     return config_dict
 
     
-def get_model(config, checkpoint_name=None, attention=False):
+def get_model(config, checkpoint_name=None):
     drop = config["drop"]
     embed_sz = config["embed_sz"]
     device = config["device"]
     checkpoint_dir = config["checkpoint_dir"]
     model_name = f"{checkpoint_dir}/{checkpoint_name}.pth"
+    attention = config["use_attn"]
 
     owlnet_dict = torch.load(model_name, map_location=torch.device(device))
     if device == "cuda":

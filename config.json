@@ -17,6 +17,7 @@
     "min_call_len": 10, 
     "max_call_len": 200,
 
+    "axis_correction": 1.2,
     "debug": false,
     "use_attn": false,
     "device": "cuda"

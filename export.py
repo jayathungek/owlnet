@@ -14,7 +14,7 @@ def export_to_csv(model_name, filename, config, save_plot=False):
     Export csv file with the following structure:
     seq_num, t_start, t_end, PCA1, PCA2
     """
-    owlnet = get_model(config, model_name, attention=False)
+    owlnet = get_model(config, model_name)
     owlnet = owlnet.eval()
     _, _, owlet_ds = load_data(config)
 

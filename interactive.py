@@ -1,6 +1,8 @@
 import torch
+from typing import Collection
 import ipywidgets as widgets
 
+import numpy as np
 import torch.nn.functional as F
 from utils import get_label_colours, imshow_to_pil, reduce_dimensions
 from data import get_verification_dataloader, CollateFunc
@@ -19,9 +21,10 @@ class VisualiserInteractive:
         self.embeddings = embeddings
         self.melspecs = melspecs
         self.melspecs_og = melspecs_og
+        self.config = config
         self.owlets = 0
 
-        owlet_clusters, owlet_indices = get_owlet_clusters(config, self.embeddings)
+        owlet_clusters, owlet_indices = get_owlet_clusters(self.config, self.embeddings)
         colours = get_label_colours(len(owlet_clusters))
 
         
@@ -94,13 +97,16 @@ class VisualiserInteractive:
                         dict(source=imshow_to_pil(spec)),
                     ]
                 )
-
-
-            
             
         self.graph = HBox((figw, imagew))
         for scatterplot in figw.data:
             scatterplot.on_hover(hover_fn)
+
+        min_x, min_y, max_x, max_y= self._get_data_bounds(owlet_clusters)
+        self.graph.children[0].update_layout(
+            xaxis=dict(range=[min_x, max_x]),  
+            yaxis=dict(range=[min_y, max_y]), 
+        )
 
     def add_points(self, points, marker_style, marker_sz):
         figw, _ = self.graph.children
@@ -121,6 +127,26 @@ class VisualiserInteractive:
     def show(self):
         display(self.graph)
         pass
+
+    def _get_data_bounds(self, embeddings_2d):
+        if isinstance(embeddings_2d, Collection):
+            embeddings_2d = np.concatenate(embeddings_2d)
+        min_x = embeddings_2d[:, 0].min()
+        max_x = embeddings_2d[:, 0].max()
+        min_y = embeddings_2d[:, 1].min()
+        max_y = embeddings_2d[:, 1].max()
+
+        width = max_x - min_x
+        height = max_y - min_y
+
+        midpoint_x = (max_x + min_x) / 2
+        midpoint_y = (max_y + min_y) / 2
+
+        min_x = (midpoint_x - (width / 2)) * self.config["axis_correction"] 
+        min_y = (midpoint_y - (height / 2)) * self.config["axis_correction"] 
+        max_x = (midpoint_x + (width / 2)) * self.config["axis_correction"] 
+        max_y = (midpoint_y + (height / 2)) * self.config["axis_correction"] 
+        return min_x, min_y, max_x, max_y 
 
 
 def create_embeds(config, model, dataloader):
