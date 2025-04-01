@@ -27,20 +27,31 @@ Please ensure that you have [Miniconda](https://www.anaconda.com/docs/getting-st
 
 1. **Exporting to CSV:** Navigate to the root directory of the project and run `python export.py` according to your specifications.
     ```bash
-    usage: python export.py [-h] [-c CONFIG] [-m MODEL] filename
+    usage: python -m owlnet.cli export [-h] [-c CONFIG] filename
     positional arguments:
       filename: name to use for saving the CSV file. Will be saved to the exports/ dir
 
     options:
-      -c CONFIG, --config CONFIG: the path to the config.json file
-      -m MODEL, --model MODEL: the name of the model you'd like to use
+      -h, --help
+      -c CONFIG, --config CONFIG: the path to a config.json file
     ```
 
 ### Optional: Training from scratch 
 
-If you would like to train your own model with different data or a modified architecture, please run `training.ipynb`. You may also want to experiment with using the version of the model that includes attention layers. To do this, set the `USE_ATTN` variable in `utils.py`. This will also automatically select the correct model checkpoint, should you have it. 
+If you would like to train your own model with different data or a modified architecture, please run:
 
+```bash
+usage: python -m owlnet.cli train [-h] [-c CONFIG] model_name
 
+positional arguments:
+  model_name
+
+options:
+  -h, --help
+  -c CONFIG, --config CONFIG: the path to a config.json
+```
+
+You may also want to experiment with using the version of the model that includes attention layers. To do this, set the `use_attn` variable in `settings/config.json`.   
 
 ### Video card
 Typically, a video card (NVIDA) is required for training and inference. However if this is not possible on your system, please change line 18 in `utils.py` as indicated in that file. This is very much NOT recommended -- the demo will take ages to run and even longer to train.
