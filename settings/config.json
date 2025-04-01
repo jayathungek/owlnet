@@ -21,7 +21,10 @@
     "min_call_len": 10, 
     "max_call_len": 200,
 
+    "hop_sizes": [20, 40, 60, 80, 100, 200, 300, 500],
+    "base_window_width": 20,
+
     "axis_correction": 1.2,
-    "debug": true,
+    "debug": false,
     "device": "cuda"
 }

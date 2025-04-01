@@ -8,8 +8,12 @@ from IPython.display import display
 import plotly.graph_objects as go
 from torchvision import transforms
 
-from owlnet.core.utils import get_label_colours, imshow_to_pil, reduce_dimensions
-from owlnet.data.dataloading import get_verification_dataloader, CollateFunc
+from owlnet.core.utils import (
+    get_label_colours,
+    imshow_to_pil,
+    get_img_data,
+)
+from owlnet.data.dataloading import CollateFunc
 from owlnet.core.cluster import get_owlet_clusters
 
 
@@ -26,8 +30,6 @@ class VisualiserInteractive:
 
         owlet_clusters, owlet_indices = get_owlet_clusters(self.config, self.embeddings)
         colours = get_label_colours(len(owlet_clusters))
-
-        
         figw = go.FigureWidget()
         
         for i, owlet_cluster in enumerate(owlet_clusters):
@@ -42,8 +44,6 @@ class VisualiserInteractive:
                 name=f"Owlet {i + 1}",
             ))
             self.owlets += 1
-            
-
 
         figw.update_layout(
             title="Hover over points to view spectrogram",
@@ -149,159 +149,82 @@ class VisualiserInteractive:
         return min_x, min_y, max_x, max_y 
 
 
-def create_embeds(config, model, dataloader):
-    model.eval()
-    embeds = []
-    specs = []
-    specs_og = []
-    crossing_times_list = []
-    for batch in dataloader:
-        with torch.no_grad():
-            data_specs, og_specs, crossing_times = batch
-            specs_og += og_specs.unbind()
-            specs += data_specs.unbind()
-            data_specs = data_specs.to(config['device'])
-            embeds_batch = model(data_specs.to(config['device']))
-            embeds.append(embeds_batch.detach().cpu())
-            crossing_times_list += crossing_times
-    embeds = torch.cat(embeds)
-    return embeds, specs, specs_og, crossing_times_list
+class ControlPanel:
+    def __init__(self, config, embeddings, visualiser):
+        self.total_ds_size = embeddings.shape[0]
+        self.base_window_width = config["base_window_width"]
+        self.hop_sizes = config["hop_sizes"]
 
-def get_img_data(img_path):
-    with open(img_path, "rb") as fh:
-        data = fh.read()
-    return data
+        self.hop_size = self.base_window_width
+        self.iteration = 0
+        self.num_iterations = self.total_ds_size // self.hop_size
+        self.collate_func = CollateFunc(spec_height=750)
+        self.window_start = 0
+        self.display_width = self.total_ds_size // self.base_window_width
+        self.window_width = self.hop_size // self.base_window_width
 
-total_ds_size = 3375
-base_window_width = 20
+        # Buttons
+        self.progress = widgets.Label(value=f"{'█' * self.window_width}{'░'* (self.display_width - self.window_width)}" )
+        self.progress_text = widgets.Label(value=f"Dataset slice [0 - {self.hop_size - 1}] of {self.total_ds_size}")
+        self.step_button = widgets.Button(description="Step")
+        self.reset_button = widgets.Button(description="Reset")
+        self.hop_size_buttons = widgets.ToggleButtons(
+            options=self.hop_sizes,
+            description="Window size (samples) :",
+        )
+        self.dataset_image = widgets.Image(
+            value=get_img_data("img/owlet_full_spectro_large.png"),
+            format="png",
+            width=1545,
+        )
 
-HOP_SIZES = [20, 40, 60, 80, 100, 200, 300, 500]
-hop_size = base_window_width
-iteration = 0
-num_iterations = total_ds_size // hop_size
-collate_func = CollateFunc(spec_height=750)
+        self.hop_size_buttons.observe(self.on_hop_select, names="value")
+        self.step_button.on_click(lambda _: self.step_run(visualiser, embeddings))
+        self.reset_button.on_click(lambda _: self.reset(visualiser))
 
-window_start = 0
-display_width = total_ds_size // base_window_width
-window_width = hop_size // base_window_width
+    def on_hop_select(self, change):
+        v = int(change["new"])
+        if v < self.total_ds_size:
+            self.hop_size = v
+        else:
+            self.hop_size = self.total_ds_size
+        
+        self.window_width = self.hop_size // self.base_window_width
+        self.num_iterations = self.total_ds_size // self.hop_size
+        self.iteration = 0
+        self.init_progress()
 
-# Buttons
-progress = widgets.Label(value=f"{'█' * window_width}{'░'* (display_width - window_width)}" )
-progress_text = widgets.Label(value=f"Dataset slice [0 - {hop_size - 1}] of {total_ds_size}")
-step_button = widgets.Button(description="Step")
-reset_button = widgets.Button(description="Reset")
-hop_size_buttons = widgets.ToggleButtons(
-    options=HOP_SIZES,
-    description="Window size (samples) :",
-)
+    def init_progress(self):
+        self.progress.value  = f"{'█' * self.window_width}{'░'* (self.display_width - self.window_width)}"
+        self.progress_text.value = f"Dataset slice [0 - {self.hop_size - 1}] of {self.total_ds_size}"
+        
+    def step_run(self, visualiser, all_val_embeds):
+        if self.iteration > self.num_iterations - 1:
+            self.iteration = 0
 
+        bar = ["░"] * self.display_width# Reset bar
 
-dataset_image = widgets.Image(
-    value=get_img_data("img/owlet_full_spectro_large.png"),
-    format="png",
-    width=1545,
-)
+        bar_pos = self.iteration * self.window_width
+        for i in range(bar_pos,  bar_pos + self.window_width):
+            bar[i] = "█"  # Highlight only the window section
 
-
-def get_all_validation_embeds(config, owlnet, owlet_dataset, collate_func):
-    verification_dl = get_verification_dataloader(owlet_dataset, None, collate_func)
-    validation_embeds, _, _, _= create_embeds(config, owlnet, verification_dl)
-    validation_embeds = F.normalize(validation_embeds, p=2, dim=1)
-    embeddings_2d = reduce_dimensions(validation_embeds)
-    return embeddings_2d
-
-
-def on_hop_select(change):
-    global iteration
-    global num_iterations
-    global total_ds_size
-    global hop_size 
-    global progress
-    global window_width
-
-    v = int(change["new"])
-    if v < total_ds_size:
-        hop_size = v
-    else:
-        hop_size = total_ds_size
-    
-    window_width = hop_size // base_window_width
-    num_iterations = total_ds_size // hop_size
-    iteration = 0
-    init_progress()
-
-hop_size_buttons.observe(on_hop_select, names="value")
-
-def init_progress():
-    global progress
-    global progress_text
-    global hop_size
-    global total_ds_size
-    global window_width
-    global display_width
-
-    progress.value  = f"{'█' * window_width}{'░'* (display_width - window_width)}"
-    progress_text.value = f"Dataset slice [0 - {hop_size - 1}] of {total_ds_size}"
-    
-
-def on_text_submit(change):
-    global iteration
-    global num_iterations
-    global total_ds_size
-    global hop_size 
-    global progress
-    v = int(change.value)
-    if v < total_ds_size:
-        hop_size = v
-    else:
-        hop_size = total_ds_size
-    
-    num_iterations = total_ds_size // hop_size
-    iteration = 0
-    init_progress()
+        # Update the label
+        self.progress.value = "".join(bar)
+        self.progress_text.value = f"Dataset slice [{self.iteration * self.hop_size} - {(self.iteration * self.hop_size) + self.hop_size - 1}] of {self.total_ds_size}"
+        self.loop_iteration(visualiser, all_val_embeds)
 
 
-def step_run(visualiser, all_val_embeds):
-    global iteration
-    global num_iterations
-    global progress
-    global progress_text
-    global window_width
-    global display_width
-
-    if iteration > num_iterations - 1:
-        iteration = 0
-
-    bar = ["░"] * display_width# Reset bar
-
-    bar_pos = iteration * window_width
-    for i in range(bar_pos,  bar_pos + window_width):
-        bar[i] = "█"  # Highlight only the window section
-
-    # Update the label
-    progress.value = "".join(bar)
-    progress_text.value = f"Dataset slice [{iteration * hop_size} - {(iteration * hop_size) + hop_size - 1}] of {total_ds_size}"
-    loop_iteration(visualiser, all_val_embeds)
+    def reset(self, visualiser):
+        self.iteration = 0
+        visualiser.pop_verification_trace()
+        self.init_progress()
 
 
-def reset(visualiser):
-    global iteration
-    iteration = 0
-    visualiser.pop_verification_trace()
-    init_progress()
+    def loop_iteration(self, visualiser, all_embeds):
+        start = self.iteration * self.hop_size
+        self.hop_size = min(self.total_ds_size - start, self.hop_size)
+        validation_embeds = all_embeds[start: start + self.hop_size]
 
-
-def loop_iteration(visualiser, all_embeds):
-    global iteration
-    global hop_size
-    global total_ds_size
-    global num_iterations
-    global collate_func
-
-    start = iteration * hop_size
-    hop_size = min(total_ds_size - start, hop_size)
-    validation_embeds = all_embeds[start: start + hop_size]
-
-    visualiser.pop_verification_trace()
-    visualiser.add_points(validation_embeds, 'x', 20)
-    iteration += 1
+        visualiser.pop_verification_trace()
+        visualiser.add_points(validation_embeds, 'x', 20)
+        self.iteration += 1
