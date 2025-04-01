@@ -8,9 +8,9 @@
     "batch_sz": 512,
     "data_split": [1.0, 0.0],
     "spec_height": 750,
-    "use_attn": false,
     "learning_rate": 5e-6,
     "train_epochs": 110,
+    "use_attn": false,
     "default_model": "model.v1_3584.datapoints_105.epochs",
 
     "max_freq": 750,
