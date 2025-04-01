@@ -3,7 +3,6 @@ import json
 import colorsys
 from pathlib import Path
 
-from model import OwlNet
 import torch.nn as nn
 from PIL import Image
 import matplotlib.pyplot as plt
@@ -13,6 +12,8 @@ import torch
 import torchaudio
 import torch.nn.functional as F
 import torchvision.transforms as trans
+
+from owlnet.core.model import OwlNet
 
 
 try:

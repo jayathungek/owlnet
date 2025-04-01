@@ -8,6 +8,10 @@
     "batch_sz": 512,
     "data_split": [1.0, 0.0],
     "spec_height": 750,
+    "use_attn": false,
+    "learning_rate": 5e-6,
+    "train_epochs": 110,
+    "default_model": "model.v1_3584.datapoints_105.epochs",
 
     "max_freq": 750,
     "n_fft": 4096,
@@ -18,7 +22,6 @@
     "max_call_len": 200,
 
     "axis_correction": 1.2,
-    "debug": false,
-    "use_attn": false,
+    "debug": true,
     "device": "cuda"
 }

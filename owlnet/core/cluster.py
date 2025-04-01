@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 
-from utils import reduce_dimensions
+from owlnet.core.utils import reduce_dimensions
 
 
 class DBSCANBase:
@@ -47,7 +47,6 @@ class DBSCANTorch(DBSCANBase): # TODO: Why is this slower than numpy?
         return labels
 
     def predict(self, X, as_numpy=True):
-        # X = torch.tensor(X[None, ...], device=self._X.device)
         X = X.unsqueeze(0).to(self.config['device'])
         centroids = self._centroids[:, None, ...]
         all_diff = X - centroids
@@ -70,7 +69,6 @@ class DBSCANTorch(DBSCANBase): # TODO: Why is this slower than numpy?
             return diff_mat
         else:
             assert False, f"Metric {self._metric} not implemented for _get_distance_matrix"
-
 
     def _get_centroids(self, labels, last_cluster):
         if last_cluster == 0:
@@ -103,7 +101,6 @@ class DBSCANTorch(DBSCANBase): # TODO: Why is this slower than numpy?
                         X, neighbors_of_neighbor, cluster, labels
                     )
         return labels
-
 
 
 def get_owlet_clusters(config, embeddings):

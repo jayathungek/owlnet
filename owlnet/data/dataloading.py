@@ -1,6 +1,7 @@
-from utils import *
+from owlnet.core.utils import *
 from torch.utils.data import Dataset, DataLoader, random_split, Subset
 from torchvision.transforms.functional import resize
+
 
 class OwletDataset(Dataset):
     def  __init__(self, config):

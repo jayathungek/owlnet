@@ -1,16 +1,16 @@
 import torch
 from typing import Collection
 import ipywidgets as widgets
-
 import numpy as np
 import torch.nn.functional as F
-from utils import get_label_colours, imshow_to_pil, reduce_dimensions
-from data import get_verification_dataloader, CollateFunc
-from cluster import get_owlet_clusters
 from ipywidgets import HBox
 from IPython.display import display
 import plotly.graph_objects as go
 from torchvision import transforms
+
+from owlnet.core.utils import get_label_colours, imshow_to_pil, reduce_dimensions
+from owlnet.data.dataloading import get_verification_dataloader, CollateFunc
+from owlnet.core.cluster import get_owlet_clusters
 
 
 TO_PIL = transforms.ToPILImage()
