@@ -184,3 +184,30 @@ def load_toy_data(
     )
 
     return train_dl, test_dl
+
+
+def create_embeds(config, model, dataloader):
+    model.eval()
+    embeds = []
+    specs = []
+    specs_og = []
+    crossing_times_list = []
+    for batch in dataloader:
+        with torch.no_grad():
+            data_specs, og_specs, crossing_times = batch
+            specs_og += og_specs.unbind()
+            specs += data_specs.unbind()
+            data_specs = data_specs.to(config['device'])
+            embeds_batch = model(data_specs.to(config['device']))
+            embeds.append(embeds_batch.detach().cpu())
+            crossing_times_list += crossing_times
+    embeds = torch.cat(embeds)
+    return embeds, specs, specs_og, crossing_times_list
+
+
+def get_all_validation_embeds(config, owlnet, owlet_dataset, collate_func):
+    verification_dl = get_verification_dataloader(owlet_dataset, None, collate_func)
+    validation_embeds, _, _, _= create_embeds(config, owlnet, verification_dl)
+    validation_embeds = F.normalize(validation_embeds, p=2, dim=1)
+    embeddings_2d = reduce_dimensions(validation_embeds)
+    return embeddings_2d

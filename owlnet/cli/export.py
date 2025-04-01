@@ -3,9 +3,13 @@ import csv
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 
-from owlnet.data.dataloading import load_data, get_verification_dataloader, CollateFunc
+from owlnet.data.dataloading import (
+    load_data,
+    get_verification_dataloader,
+    CollateFunc,
+    create_embeds
+)
 from owlnet.core.utils import get_model, reduce_dimensions
-from owlnet.core.interactive import create_embeds
 
 
 def export_to_csv(model_name, filename, config, save_plot=False):

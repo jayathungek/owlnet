@@ -296,3 +296,8 @@ def get_model(config, checkpoint_name=None):
         owlnet.load_state_dict(owlnet_dict)
     return owlnet
         
+
+def get_img_data(img_path):
+    with open(img_path, "rb") as fh:
+        data = fh.read()
+    return data
