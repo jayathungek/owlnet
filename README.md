@@ -25,7 +25,7 @@ Please ensure that you have [Miniconda](https://www.anaconda.com/docs/getting-st
     ```
     This will open a browser window from which you can select the notebook you wish to run. If you just want to run the demo, this is `owlnet_demo.ipynb`. Run all the cells in order.
 
-1. **Exporting to CSV:** Navigate to the root directory of the project and run `python export.py` according to your specifications.
+1. **Exporting to CSV:** Navigate to the root directory of the project and run `python -m owlnet.cli export`, supplying a filename for the CSV to be exported:
     ```bash
     usage: python -m owlnet.cli export [-h] [-c CONFIG] filename
     positional arguments:
@@ -38,7 +38,7 @@ Please ensure that you have [Miniconda](https://www.anaconda.com/docs/getting-st
 
 ### Optional: Training from scratch 
 
-If you would like to train your own model with different data or a modified architecture, please run:
+If you would like to train your own model with different data or a modified architecture, please navigate to the project's root directory and run `python -m owlnet.cli train`, supplying a name for the model you are about to train:
 
 ```bash
 usage: python -m owlnet.cli train [-h] [-c CONFIG] model_name
