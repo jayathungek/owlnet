@@ -12,7 +12,7 @@ from owlnet.data.dataloading import (
 from owlnet.core.utils import get_model, reduce_dimensions
 
 
-def export_to_csv(model_name, filename, config, save_plot=False):
+def export_to_csv(filename, config, save_plot=False, model_name=None):
     """
     Export csv file with the following structure:
     seq_num, t_start, t_end, PCA1, PCA2
@@ -38,7 +38,7 @@ def export_to_csv(model_name, filename, config, save_plot=False):
         csv_writer.writerows(rows)
 
     if save_plot:
-        img_filename = f"{config['exports_dir']}/{filename.split('.')[0]}.png"
+        img_filename = f"{config['exports_dir']}/{filename}.png"
         plt.scatter(x=embeddings_2d[:, 0], y=embeddings_2d[:, 1], s=10)
         plt.savefig(img_filename)
 

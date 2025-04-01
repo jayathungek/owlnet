@@ -10,6 +10,7 @@ def export_parser(args):
     parser = ArgumentParser(prog="export")
     parser.add_argument("filename")
     parser.add_argument("-c", "--config", default="settings/config.json")
+    parser.add_argument("-m", "--model")
     parsed_args = parser.parse_args(args)
     return parsed_args
 
@@ -41,10 +42,10 @@ if __name__ == "__main__":
         export_args = export_parser(sub_args)
         config = load_config(export_args.config)
         embeds_2d, crossing_times = export_to_csv(
-            config["default_model"],
             export_args.filename,
             config,
-            save_plot=True
+            save_plot=True,
+            model_name=export_args.model
         )
     else:
         raise ValueError(f"Program {parsed.program} unknown, please use one of: train, export")

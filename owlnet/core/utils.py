@@ -284,8 +284,11 @@ def get_model(config, checkpoint_name=None):
     embed_sz = config["embed_sz"]
     device = config["device"]
     checkpoint_dir = config["checkpoint_dir"]
-    model_name = f"{checkpoint_dir}/{checkpoint_name}.pth"
     attention = config["use_attn"]
+
+    if checkpoint_name is None:
+        checkpoint_name = config["default_model"]
+    model_name = f"{checkpoint_dir}/{checkpoint_name}.pth"
 
     owlnet_dict = torch.load(model_name, map_location=torch.device(device))
     if device == "cuda":
