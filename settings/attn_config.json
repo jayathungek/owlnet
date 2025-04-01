@@ -10,8 +10,8 @@
     "spec_height": 750,
     "learning_rate": 5e-6,
     "train_epochs": 110,
-    "use_attn": false,
-    "default_model": "model.v1_3584.datapoints_105.epochs",
+    "use_attn": true,
+    "default_model": "model.attn.v4_3584.datapoints_110.epochs",
 
     "max_freq": 750,
     "n_fft": 4096,
