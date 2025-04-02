@@ -51,7 +51,11 @@ options:
   -c CONFIG, --config CONFIG: the path to a config.json
 ```
 
-You may also want to experiment with using the version of the model that includes attention layers. To do this, set the `use_attn` variable in `settings/config.json`.   
+You may also want to experiment with using the version of the model that includes attention layers. To do this, please pass `settings/attn_config.json` to the training and/or export script:
+```bash
+(owlnet)$ python -m owlnet.cli train -c settings/attn_config.json my_new_model 
+(owlnet)$ python -m owlnet.cli export -c settings/attn_config.json outfile
+```   
 
 ### Video card
 Typically, a video card (NVIDA) is required for training and inference. However if this is not possible on your system, please set the `device` variable in `settings/config.json` to `cpu` instead of `cuda`. This is very much NOT recommended -- the demo will take ages to run and even longer to train.
