@@ -1,8 +1,6 @@
 import sys
 from argparse import ArgumentParser
 
-from owlnet.core.train import train
-from owlnet.cli.export import export_to_csv
 from owlnet.core.utils import load_config
 
 
@@ -23,6 +21,13 @@ def train_parser(args):
     return parsed_args
 
 
+def sharding_parser(args):
+    parser = ArgumentParser(prog="shard")
+    parser.add_argument("config")
+    parsed_args = parser.parse_args(args)
+    return parsed_args
+
+
 def parse_args(args):
     parser = ArgumentParser(prog="owlnet.cli")
     parser.add_argument("program")
@@ -35,10 +40,12 @@ if __name__ == "__main__":
     sub_args = args[1:]
     parsed = parse_args([args[0]])
     if parsed.program == "train":
+        from owlnet.core.train import train
         train_args = train_parser(sub_args)
         config = load_config(train_args.config)
         train(config, train_args.model_name)
     elif parsed.program == "export":
+        from owlnet.cli.export import export_to_csv
         export_args = export_parser(sub_args)
         config = load_config(export_args.config)
         embeds_2d, crossing_times = export_to_csv(
@@ -47,6 +54,11 @@ if __name__ == "__main__":
             save_plot=True,
             model_name=export_args.model
         )
+    elif parsed.program == "shard":
+        from owlnet.data.sharding import extract_features
+        shard_args = sharding_parser(sub_args)
+        config = load_config(shard_args.config)
+        extract_features(config)
     else:
         raise ValueError(f"Program {parsed.program} unknown, please use one of: train, export")
 

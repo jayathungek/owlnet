@@ -7,3 +7,4 @@ model_checkpoints/*
 __pycache__
 exports/*
 !exports/__init__.py
+*.old.*

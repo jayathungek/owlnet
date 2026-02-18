@@ -17,3 +17,4 @@ dependencies:
       - plotly==5.18.0
       - scikit-learn
       - tqdm
+      - webdataset

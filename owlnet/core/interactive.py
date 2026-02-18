@@ -21,10 +21,9 @@ TO_PIL = transforms.ToPILImage()
 
 
 class VisualiserInteractive:
-    def __init__(self, config, embeddings, melspecs, melspecs_og) -> None:
+    def __init__(self, config, embeddings, melspecs) -> None:
         self.embeddings = embeddings
         self.melspecs = melspecs
-        self.melspecs_og = melspecs_og
         self.config = config
         self.owlets = 0
 

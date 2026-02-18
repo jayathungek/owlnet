@@ -1,32 +1,13 @@
+from typing import Union
+import glob
+
+import webdataset as wds
+
 from owlnet.core.utils import *
-from torch.utils.data import Dataset, DataLoader, random_split, Subset
+from owlnet.data.augment import Specaugment
+from torch.utils.data import DataLoader, Subset
 from torchvision.transforms.functional import resize
 
-
-class OwletDataset(Dataset):
-    def  __init__(self, config):
-        super().__init__()
-        self.config = config
-        self.dataset = self.prepare_data()
-
-    def prepare_data(self):
-        all_wavs = list(gather_data_files(self.config['data_dir'], test_only=self.config["debug"]))
-        chunks_list = []
-        for file in all_wavs:
-            print(f"Processing file {file.stem}")
-            chunks, chunks_original, chunks_crossing_times = chop_file(
-                self.config,
-                file,
-            )
-            chunks_list += list(zip(chunks, chunks_original, chunks_crossing_times))
-
-        return chunks_list
-
-    def __len__(self):
-        return len(self.dataset)
-                
-    def __getitem__(self, idx):
-        return self.dataset[idx][0], self.dataset[idx][1], self.dataset[idx][2]
 
 def get_verification_dataloader(full_dataset, verification_subset, collate_fn):
     if verification_subset is not None:
@@ -45,164 +26,156 @@ def get_verification_dataloader(full_dataset, verification_subset, collate_fn):
     )            
     return dataloader
 
-class ToyDataset(Dataset):
-    def  __init__(self, data_len, data_proportion, data_h, data_w):
-        super().__init__()
-        self.data_len = data_len
-        self.data_h = data_h
-        self.data_w = data_w
-        self.data_proportion = data_proportion
-        self.dataset = self.prepare_data()
-
-    def prepare_data(self):
-        chunks = (torch.rand(self.data_len) > self.data_proportion).int().reshape(
-            self.data_len, 1).repeat(
-                1, self.data_h).repeat(
-                    1, self.data_w).reshape(
-                        self.data_len, self.data_h, self.data_w)
-        chunks = list(chunks.float().unsqueeze(1).unbind())
-        return chunks
-    
-    def __len__(self):
-        return len(self.dataset)
-                
-    def __getitem__(self, idx):
-        return self.dataset[idx]
-
-
-def safe_split(total_len, fractions):
-    assert sum(fractions) == 1, f"Split fractions must sum to 1, but got: {sum(split)}"
-    split = [
-       round(frac * total_len)
-       for frac in fractions 
-    ]
-
-    # if there is a mismatch, make up the difference by adding it to train samples
-    split_sum = sum(split)
-    if total_len != split_sum:
-        diff = max(total_len, split_sum) - min(total_len, split_sum)
-        diff = total_len - sum(split)
-        split[0] += diff
-    assert sum(split) == total_len, f"Expected sum of split == {total_len}, but got: {sum(split)}" 
-    return split
-
 
 class CollateFunc:
 
-    def __init__(self, spec_height):
-        self.spec_height = spec_height
+    def __init__(self, config):
+        self.spec_height = config['spec_height']
+        self.augmentor = Specaugment(
+            config['specaugment_tmask'],
+            config['specaugment_fmask']
+        )
     
     def __call__(self, batch):
         max_len = 0
-        for spec, og_spec, _ in batch:
+        for spec, _, _ in batch:
             time_len = spec.shape[-1]
             max_len = time_len if time_len > max_len else max_len
             
         
         padded = []
-        padded_og = []
         crossing_times_list = []
-        for spec, og_spec, crossing_times in batch:
+        nest_id_list = []
+        for spec, crossing_times, nest_id in batch:
             padding_needed = max_len - spec.shape[2]
             if padding_needed > 0:
                 # spec = F.pad(spec, (0, padding_needed), "constant", 0)
-                # og_spec = F.pad(og_spec, (0, padding_needed), "constant", 0)
-
                 spec = resize(spec, (self.spec_height, max_len), antialias=True)
-                og_spec = resize(og_spec, (self.spec_height, max_len), antialias=True)
 
             padded.append(spec)
-            padded_og.append(og_spec)
-            crossing_times_list.append(crossing_times)
+            nest_id_list.append(nest_id.unsqueeze(0))
+            crossing_times_list.append(crossing_times.unsqueeze(0))
             
         padded = torch.cat(padded).unsqueeze(1)
-        padded_og = torch.cat(padded_og).unsqueeze(1)
-        return padded, padded_og, crossing_times_list
-
+        crossing_times = torch.cat(crossing_times_list)
+        nest_ids = torch.cat(nest_id_list)
+        padded_aug = self.augmentor(padded)
+        return padded, padded_aug, crossing_times, nest_ids
+    
 
 def load_data(config):
-    assert sum(config['data_split']) == 1, "Train and test fractions should sum to 1!"  
-    dataset = OwletDataset(config)
-    
-    # This code generates the actual number of items that goes into each split using the user-supplied fractions
-    tr_te = safe_split(len(dataset), config['data_split'])
-    train_split, test_split = random_split(dataset, tr_te)
+    # Union[str, list]="all" # if not "all", list all nests to include in train dl, rest go to test/other dl
+    nests_split = config["split"]
+    with open(f"{config['proj_root']}/{config['shard_dir']}/ds_info.json", "r") as fh:
+        ds_info =  json.load(fh)
+    ds_nests = set([int(k) for k in ds_info["nests"].keys()])
 
-    collate_func = CollateFunc(spec_height=config['spec_height'])
-    
-    train_dl = DataLoader(
-        train_split, 
-        collate_fn=collate_func,
-        batch_size=config['batch_sz'], 
-        shuffle=True, 
-    )            
+    if isinstance(nests_split, str):
+        if nests_split == "all":
+            train_nests = list(ds_nests)
+            test_nests = set([])
+        else:
+            assert False, f"Invalid str {nests_split} for nests_split. Must be `all`."
+    else:
+        train_nests = set(nests_split[0])
+        test_nests = set(nests_split[1])
+        assert  train_nests.isdisjoint(test_nests), f"Nest split must be disjoint!"
+        assert len(train_nests) > 0, f"No. of train nests must be > 0"
+        user_nests = train_nests | test_nests
+        assert user_nests <= ds_nests, f"Nest split contains nest IDs that are not in dataset: {list(user_nests - ds_nests)}"
+        
 
-    test_dl = DataLoader(
-        test_split, 
-        collate_fn=collate_func,
-        batch_size=config['batch_sz'], 
-        shuffle=False, 
+    collate_func = CollateFunc(config)
+
+    train_shards = []
+    for nestid in train_nests:
+        train_shards += sorted(glob.glob(f"{config['proj_root']}/{config['shard_dir']}/nest-{nestid}-*.tar"))
+    train_ds = (
+        wds.WebDataset(
+            train_shards,
+            shardshuffle=config['shard_size']
+        )
+           .shuffle(config['shard_size'])
+           .decode("torch")
+           .to_tuple("tensor.pth", "timestamp.pth", "nestid.pth")
     )
-
-    return train_dl, test_dl, dataset
-
-
-
-def load_toy_data(
-    batch_sz=16,
-    train_test_split=[0.8, 0.2]
-):
-    def collate_func(batch):
-        padded = []
-        padded_og = []
-        for spec, spec_og in batch:
-            padded.append(spec)
-            padded_og.append(spec_og)
-        padded = torch.cat(padded).unsqueeze(1)
-        padded_og = torch.cat(padded_og).unsqueeze(1)
-        return padded, padded_og
-
-    assert sum(train_test_split) == 1, "Train and test fractions should sum to 1!"  
-    dataset = ToyDataset(2000, 0.2, 256, 70)
-    
-    # This code generates the actual number of items that goes into each split using the user-supplied fractions
-    tr_te = safe_split(len(dataset), train_test_split)
-    train_split, test_split = random_split(dataset, tr_te)
-    
     train_dl = DataLoader(
-        train_split, 
+        train_ds, 
         collate_fn=collate_func,
-        batch_size=batch_sz, 
-        shuffle=True, 
+        num_workers=config['num_ds_workers'],
+        batch_size=config['batch_sz']
     )            
+    train_size = 0
+    for nestid in train_nests:
+        train_size += ds_info["nests"][str(nestid)]["num_samples"]
 
-    test_dl = DataLoader(
-        test_split, 
-        collate_fn=collate_func,
-        batch_size=batch_sz, 
-        shuffle=False, 
-    )
+    if len(test_nests) > 0:
+        test_shards = []
+        for nestid in test_nests:
+            test_shards += sorted(glob.glob(f"{config['proj_root']}/{config['shard_dir']}/nest-{nestid}-*.tar"))
+        test_ds = (
+            wds.WebDataset(
+                test_shards,
+                shardshuffle=config['shard_size']
+            )
+            .shuffle(config['shard_size'])
+            .decode("torch")
+            .to_tuple("tensor.pth", "timestamp.pth", "nestid.pth")
+        )
+        test_dl = DataLoader(
+            test_ds, 
+            collate_fn=collate_func,
+            num_workers=config['num_ds_workers'],
+            batch_size=config['batch_sz']
+        )            
+        test_size = 0
+        for nestid in test_nests:
+            test_size += ds_info["nests"][str(nestid)]["num_samples"]
+    else:
+        test_ds = None
+        test_dl = None
+        test_size = 0
 
-    return train_dl, test_dl
+    load_results = {
+        "train": {
+            "dl": train_dl,
+            "ds": train_ds,
+            "size": train_size
+        },
+        "test": {
+            "dl": test_dl,
+            "ds": test_ds,
+            "size": test_size
+        },
+    }
 
+    return load_results
 
-def create_embeds(config, model, dataloader):
+def create_embeds(config, model, dataloader, sample_rate):
     model.eval()
     embeds = []
     specs = []
-    specs_og = []
     crossing_times_list = []
+    nest_id_list = []
     for batch in dataloader:
         with torch.no_grad():
-            data_specs, og_specs, crossing_times = batch
-            specs_og += og_specs.unbind()
-            specs += data_specs.unbind()
-            data_specs = data_specs.to(config['device'])
-            embeds_batch = model(data_specs.to(config['device']))
-            embeds.append(embeds_batch.detach().cpu())
-            crossing_times_list += crossing_times
+            data_specs, _, crossing_times, nest_id = batch
+            num_samples = int(sample_rate * data_specs.shape[0])
+            assert num_samples > 0, f"Increase sample_rate, num_samples is 0!"
+
+            sampled_specs = data_specs[:num_samples, ...]
+            sampled_crossing_times = crossing_times[:num_samples, ...]
+            sampled_nest_ids = nest_id[:num_samples, ...]
+            specs += sampled_specs.unbind()
+            sampled_specs = sampled_specs.to(config['device'])
+            with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=True), torch.backends.cuda.sdp_kernel(enable_flash=False):
+                embeds_batch = model(sampled_specs)
+                embeds_batch = F.normalize(embeds_batch, p=2, dim=1) 
+                embeds.append(embeds_batch.detach().cpu())
+            nest_id_list.append(sampled_nest_ids)
+            crossing_times_list += sampled_crossing_times
     embeds = torch.cat(embeds)
-    return embeds, specs, specs_og, crossing_times_list
+    return embeds, specs, crossing_times_list, nest_id_list
 
 
 def get_all_validation_embeds(config, owlnet, owlet_dataset, collate_func):

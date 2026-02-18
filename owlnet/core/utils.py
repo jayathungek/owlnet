@@ -2,7 +2,9 @@ import io
 import json
 import colorsys
 from pathlib import Path
+from datetime import datetime
 
+import numpy as np
 import torch.nn as nn
 from PIL import Image
 import matplotlib.pyplot as plt
@@ -12,8 +14,12 @@ import torch
 import torchaudio
 import torch.nn.functional as F
 import torchvision.transforms as trans
+import torchaudio.functional as A
 
-from owlnet.core.model import OwlNet
+try:
+    from owlnet.core.model import OwlNet
+except ModuleNotFoundError:
+    from model import OwlNet
 
 
 try:
@@ -52,24 +58,27 @@ def process_melspec(melspec):
     return norm
     
 
-def get_melspec(config, waveform):
+def get_melspec(config, waveform, sr):
+    hipassed = hipass(waveform, sr, config['hipass_cutoff_hz'])
     spectrogram = torchaudio.transforms.Spectrogram(
         n_fft=config['n_fft'],
         hop_length=config['hop_length'],
         power=2.0
     )
-    mel_spec = spectrogram(waveform)
+    mel_spec = spectrogram(hipassed)
     mel_spec = torchaudio.transforms.AmplitudeToDB()(mel_spec)
     mel_spec = normalise(mel_spec)[:, :config['max_freq'], :]
     return mel_spec
 
 
-def display_melspec(melspec, crossings=None, size=(10, 4), colorbar=True):
+def display_melspec(melspec, crossings=None, size=(20, 4), colorbar=True):
     plt.figure(figsize=size)
     melspec = melspec.squeeze().numpy()
     plt.imshow(melspec, aspect='auto', origin='lower', cmap='viridis')
 
     if crossings is not None:
+        if type(crossings) is list:
+            crossings = torch.tensor(crossings).flatten()
         for idx in crossings:
             plt.axvline(x=idx, color='r', linestyle='-', linewidth=0.5)
     if colorbar:
@@ -82,31 +91,49 @@ def display_melspec(melspec, crossings=None, size=(10, 4), colorbar=True):
 
 
 def display_audio_file(config, wav_path):
-    waveform, _ = torchaudio.load(wav_path)
+    waveform, sr = torchaudio.load(wav_path)
     plt.figure(figsize=(10, 4))
     plt.plot(waveform.t().numpy())  # Convert PyTorch tensor to NumPy
     plt.title("Waveform")
     plt.xlabel("Time")
     plt.ylabel("Amplitude")
     plt.show()
-    mel_spec_db = get_melspec(config, waveform)
+    mel_spec_db = get_melspec(config, waveform, sr)
     display_melspec(mel_spec_db)
 
 
-def gather_data_files(data_dir, test_only):
-    data_dir = Path(data_dir).resolve()
+def gather_data_files(config):
+    data_dir = Path(config["data_dir"]).resolve()
+    test_only = config["debug"]
     if test_only:
-        all_files = data_dir.glob("test.wav")
+        all_files = data_dir.glob(config["test_file"])
     else:
-        all_files = [f for f in data_dir.glob("*.wav") if f.name != "test.wav"]
+        mp3_files = [f for f in data_dir.glob("*.mp3") if f.name != config["test_file"]]
+        wav_files = [f for f in data_dir.glob("*.wav") if f.name != config["test_file"]]
+        all_files = mp3_files + wav_files
     return all_files
-    
 
-def get_zero_crossing_indices(melspec, zero_threshold, min_len, max_len):
+
+def get_zero_crossing_indices(melspec, zero_threshold, min_len, max_len, display):
     # replace all values below threshold with 0 and average along the 
     # frequency axis
     mean_freq_axis = melspec.mean(dim=1).squeeze()
-    filtered = torch.where(mean_freq_axis<= zero_threshold, 0, mean_freq_axis)
+    # mean_freq_axis /= torch.max(mean_freq_axis)
+    mean_freq_axis = (mean_freq_axis - mean_freq_axis.min()) / (mean_freq_axis.max() - mean_freq_axis.min())
+
+    if display:
+        plt.plot(mean_freq_axis)
+        plt.axhline(y=zero_threshold, color="red")
+
+    filtered = torch.where(mean_freq_axis<= zero_threshold, 0, 1)
+
+    # plt.figure(figsize=(12, 2))
+    # plt.imshow(filtered[np.newaxis, :], aspect='auto', interpolation='nearest')
+    # plt.yticks([])            
+    # plt.xlabel("Index")
+    # plt.title("Boolean array (True/False)")
+    # plt.tight_layout()
+    # plt.show()
 
     # Use 2 pointers to keep track of start and end of a call
     crossings = []
@@ -152,9 +179,9 @@ def image_grid(image_batch):
     
 
 
-def show_batch(image_batch, title="Image batch", size=10):
+def show_batch(image_batch, title="Image batch", size=(20, 4)):
     result = image_grid(image_batch)
-    plt.figure(figsize=(size, size))
+    plt.figure(figsize=size)
     plt.title(f"{title}")
     plt.xticks([])  # Remove x-axis ticks
     plt.yticks([])  # Remove y-axis ticks
@@ -171,37 +198,39 @@ def show_batch(image_batch, title="Image batch", size=10):
 def chop_file(
     config,
     filepath,
+    t_init,
     display=False,
 ):
     waveform, sample_rate = torchaudio.load(filepath)
-    melspec = get_melspec(config, waveform)
+    melspec = get_melspec(config, waveform, sample_rate)
+    hop_size = config['hop_length']
+    min_len = int(((config['min_call_len_ms'] / 1000) * sample_rate) / hop_size)
+    max_len = int(((config['max_call_len_ms'] / 1000) * sample_rate) / hop_size)
     chunk_indices = get_zero_crossing_indices(
         melspec,
         config['zero_threshold'],
-        config['min_call_len'],
-        config['max_call_len']
+        min_len,
+        max_len,
+        display=display
     )
-    chunks_normal = []
     chunks = []
     chunks_crossing_times = []
-    hop_size = config['hop_length']
     for i in tqdm(range(0, len(chunk_indices), 2)):
         start = chunk_indices[i]
         end = chunk_indices[i + 1]
         start_time = start * (hop_size / sample_rate)
         end_time = end * (hop_size / sample_rate)
         chunk = melspec[:, :, start:end]
-        chunks_normal.append(chunk)
         chunk = process_melspec(chunk)
         chunks.append(chunk)
-        chunks_crossing_times.append([start_time, end_time])
+        chunks_crossing_times.append([t_init + start_time, t_init + end_time])
     if display:
         display_melspec(melspec, chunk_indices)
-    return chunks, chunks_normal, chunks_crossing_times
+    return chunks, chunks_crossing_times
 
     
-def display_zero_crossings(config):
-    all_wavs = list(gather_data_files(config['data_dir'], test_only=True))
+def display_zero_crossings(config, display=True):
+    all_wavs = list(gather_data_files(config))
     chunks_list = []
     chunk_crossing_times_list = []
     for idx, file in enumerate(all_wavs):
@@ -210,25 +239,27 @@ def display_zero_crossings(config):
         chunks_list += chunks
         chunk_crossing_times_list.append(chunk_crossing_times)
         
-    max_time = 0
-    height = chunks_list[0].shape[1]
-    for spec in chunks_list:
-        t = spec.shape[-1]
-        if t > max_time:
-            max_time = t
+    if display:
+        max_time = 0
+        height = chunks_list[0].shape[1]
+        for spec in chunks_list:
+            t = spec.shape[-1]
+            if t > max_time:
+                max_time = t
 
-    resize = trans.Resize((height, max_time), antialias=True)
-    chunks_list = [
-        resize(
-            torch.cat(
-                list(reversed(
-                    c.unbind(dim=1)
-                ))
-            ).unsqueeze(0)
-        ) for c in chunks_list
-    ]
-    spectrograms = torch.cat(chunks_list)
-    show_batch(spectrograms, title="Model inputs")
+        resize = trans.Resize((height, max_time), antialias=True)
+        chunks_list = [
+            resize(
+                torch.cat(
+                    list(reversed(
+                        c.unbind(dim=1)
+                    ))
+                ).unsqueeze(0)
+            ) for c in chunks_list
+        ]
+        spectrograms = torch.cat(chunks_list)
+        show_batch(spectrograms, title="Model inputs")
+    return chunks, original_chunks, chunk_crossing_times
     
 
 
@@ -279,18 +310,21 @@ def load_config(config_path):
     return config_dict
 
     
-def get_model(config, checkpoint_name=None):
+def get_model(config, model_name=None):
     drop = config["drop"]
     embed_sz = config["embed_sz"]
     device = config["device"]
     checkpoint_dir = config["checkpoint_dir"]
     attention = config["use_attn"]
 
-    if checkpoint_name is None:
-        checkpoint_name = config["default_model"]
-    model_name = f"{checkpoint_dir}/{checkpoint_name}.pth"
+    if model_name is None:
+        model_name = config["default_model"]
 
-    owlnet_dict = torch.load(model_name, map_location=torch.device(device))
+    model_dir = f"{config['proj_root']}/{checkpoint_dir}/{model_name}"
+    best_checkpoint = get_sorted_checkpoints(model_dir)[0]
+
+    save_items = torch.load(best_checkpoint, map_location=torch.device(device))
+    owlnet_dict = toggle_model_dict_dataparallel(save_items["model_state_dict"])
     if device == "cuda":
         owlnet = nn.DataParallel(OwlNet(embed_sz, drop, use_attention=attention)).to(device)
         owlnet.module.load_state_dict(owlnet_dict)
@@ -304,3 +338,118 @@ def get_img_data(img_path):
     with open(img_path, "rb") as fh:
         data = fh.read()
     return data
+
+    
+def hipass(signal, sr, cutoff_hz):
+    filtered = A.highpass_biquad(signal, sample_rate=sr, cutoff_freq=cutoff_hz)
+    return filtered
+
+    
+def infer_abs_unix_timestamp(filename):
+    time_part = filename.split("_")[-1]
+    date_part = filename.split("_")[-2]
+    date_time = f"{date_part}{time_part}"
+    ts = datetime.strptime(date_time, "%Y%m%d%H%M%S").timestamp()
+    return ts
+
+
+def display_datetime(timestamp):
+    return (
+        datetime.fromtimestamp(timestamp)
+    )
+
+
+def get_nest_id(path):
+    prefix = "nest"
+    path_tags = str(path).split("_")
+    nest_num = None
+    for tag in path_tags:
+        if prefix in tag:
+            idx = tag.index(prefix)
+            nest_num = int(tag[idx+len(prefix):])
+    if nest_num is None:
+        assert False, f"Filenames incorrect or not found: must include `nest` in title. Check data root dir"
+    return nest_num
+
+
+def get_sorted_checkpoints(model_dir: str, sortby="metric", epoch=None):
+    model_dir = Path(model_dir).resolve()
+    if epoch is not None:
+        pattern = f'epoch_{epoch}*.pth'
+        ret_checkpoints = list(model_dir.glob(pattern))
+        return ret_checkpoints
+
+    all_checkpoints = list(model_dir.glob('*.pth'))
+    get_value = lambda x: float(x.stem.split('_')[-1]) 
+    if sortby == "metric":
+        if len(all_checkpoints) > 0:
+            sorted_checkpoints =  sorted(
+                all_checkpoints,
+                key=get_value,
+            )
+            return sorted_checkpoints
+        else:
+            return []
+    else:
+        # sortby should contain the exact value that needs to be 
+        # used.
+        min_dist = float("inf")
+        sorted_checkpoints = None
+        for p in all_checkpoints:
+            v = get_value(p)
+            dist = abs(v - sortby)
+            if dist < min_dist:
+                min_dist = dist
+                if sorted_checkpoints is None:
+                    sorted_checkpoints = [p]
+                else:
+                    sorted_checkpoints[0] = p
+        if sorted_checkpoints is None:
+            sorted_checkpoints = []
+        return sorted_checkpoints
+
+
+def toggle_model_dict_dataparallel(model_dict):
+    dict_keys = list(model_dict.keys())
+    dp_prefix = "module."
+    is_data_parallel = dict_keys[0].startswith(dp_prefix)
+
+    if is_data_parallel:
+        ret_dict = {
+            k[len(dp_prefix):]: v 
+            for k, v in model_dict.items()
+        }
+    else:
+        ret_dict = {
+            f"{dp_prefix}{k}": v 
+            for k, v in model_dict.items()
+        }
+
+    return ret_dict
+
+
+def save_model(run_path, curr_epoch, model, opt, scaler, loss=None):
+    metric_str = f"loss_{loss}"
+    with open(run_path / f"epoch_{curr_epoch}_{metric_str}.pth", "wb") as fh:
+        if not isinstance(model, dict):
+            model = model.state_dict()
+        if not isinstance(opt, dict):
+            opt = opt.state_dict()
+        if not isinstance(scaler, dict):
+            scaler = scaler.state_dict()
+            
+        save_items = {
+            "epoch": curr_epoch,
+            "model_state_dict": model,
+            "optimizer_dict": opt,
+            "scaler_dict": scaler,
+        }
+        torch.save(save_items, fh)
+
+
+if __name__ == "__main__":
+    # print(infer_abs_unix_timestamp("2MM09330_20250625_033002"))
+    # p = Path("owl_data/nest3_smu2_trigon_2025/2MM09330_20250625_003002.wav")
+    # print(get_nest_id(p))
+    num_files = len(list(Path("owl_data/").glob("**/*.[Ww][Aa][Vv]")))
+    print(num_files)
