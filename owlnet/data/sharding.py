@@ -50,7 +50,10 @@ def extract_features(config):
     failed_filenames = []
     ds_info = {"nests": {}}
     for nestid, samples in nests.items():
-        shard_pattern = config["shard_pattern"].format(nestid=nestid)
+        shard_pattern = config["shard_pattern"].format(
+            sharddir=config["shard_dir"], 
+            nestid=nestid
+        )
         shard_size = config["shard_size"]
         with wds.ShardWriter(shard_pattern, maxcount=shard_size) as sink:
             shard_index = 0

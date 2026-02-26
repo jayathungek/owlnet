@@ -49,8 +49,9 @@ class CollateFunc:
         for spec, crossing_times, nest_id in batch:
             padding_needed = max_len - spec.shape[2]
             if padding_needed > 0:
+                height = spec.shape[1]
                 # spec = F.pad(spec, (0, padding_needed), "constant", 0)
-                spec = resize(spec, (self.spec_height, max_len), antialias=True)
+                spec = resize(spec, (height, max_len), antialias=True)
 
             padded.append(spec)
             nest_id_list.append(nest_id.unsqueeze(0))
@@ -63,7 +64,7 @@ class CollateFunc:
         return padded, padded_aug, crossing_times, nest_ids
     
 
-def load_data(config):
+def load_data(config, sample_rate=1.0):
     # Union[str, list]="all" # if not "all", list all nests to include in train dl, rest go to test/other dl
     nests_split = config["split"]
     with open(f"{config['proj_root']}/{config['shard_dir']}/ds_info.json", "r") as fh:
@@ -96,6 +97,7 @@ def load_data(config):
             shardshuffle=config['shard_size']
         )
            .shuffle(config['shard_size'])
+           .rsample(sample_rate)
            .decode("torch")
            .to_tuple("tensor.pth", "timestamp.pth", "nestid.pth")
     )
@@ -151,7 +153,7 @@ def load_data(config):
 
     return load_results
 
-def create_embeds(config, model, dataloader, sample_rate):
+def create_embeds(config, model, dataloader):
     model.eval()
     embeds = []
     specs = []
@@ -159,23 +161,19 @@ def create_embeds(config, model, dataloader, sample_rate):
     nest_id_list = []
     for batch in dataloader:
         with torch.no_grad():
-            data_specs, _, crossing_times, nest_id = batch
-            num_samples = int(sample_rate * data_specs.shape[0])
-            assert num_samples > 0, f"Increase sample_rate, num_samples is 0!"
-
-            sampled_specs = data_specs[:num_samples, ...]
-            sampled_crossing_times = crossing_times[:num_samples, ...]
-            sampled_nest_ids = nest_id[:num_samples, ...]
-            specs += sampled_specs.unbind()
-            sampled_specs = sampled_specs.to(config['device'])
+            data_specs, _, crossing_times, nest_ids = batch
+            specs.append(data_specs)
+            data_specs = data_specs.to(config['device'])
             with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=True), torch.backends.cuda.sdp_kernel(enable_flash=False):
-                embeds_batch = model(sampled_specs)
+                embeds_batch = model(data_specs)
                 embeds_batch = F.normalize(embeds_batch, p=2, dim=1) 
                 embeds.append(embeds_batch.detach().cpu())
-            nest_id_list.append(sampled_nest_ids)
-            crossing_times_list += sampled_crossing_times
+                nest_id_list.append(nest_ids)
+                crossing_times_list.append(crossing_times)
     embeds = torch.cat(embeds)
-    return embeds, specs, crossing_times_list, nest_id_list
+    crossing_times = torch.cat(crossing_times_list)
+    nest_ids = torch.cat(nest_id_list)
+    return embeds, specs, crossing_times, nest_ids
 
 
 def get_all_validation_embeds(config, owlnet, owlet_dataset, collate_func):

@@ -52,6 +52,8 @@ def train(config, model_name):
         pbar = tqdm(range(curr_epoch, config["train_epochs"]))
         for epoch in pbar:
             num_batches = train_ds_size / config["batch_sz"]
+            total_loss = 0
+            total_batches = 0
             for i, (train_batch, train_aug_batch, _, _) in enumerate(owlet_train):
                 optimizer.zero_grad()
                 train_batch = train_batch.to(config["device"])
@@ -66,13 +68,17 @@ def train(config, model_name):
                         ), dim=1
                     )
                     loss = loss_function(embeds_cat)
+                    total_loss += loss
                 optimizer.zero_grad()
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
                 scaler.update()
                 pbar.set_description(f"Train {epoch+1} | {100*i/num_batches:.3f}% | Loss: {loss.item():.4f}")
+                total_batches += 1
+            
+            total_loss /= total_batches
             if epoch % config["checkpoint_freq"] == 0:
-                save_model(run_path, epoch, owlnet, optimizer, scaler, loss.item())
+                save_model(run_path, epoch, owlnet, optimizer, scaler, total_loss.item())
     except KeyboardInterrupt:
         print(f"Training interrupted by user, saving latest model weights")
         save_model(run_path, epoch, owlnet, optimizer, scaler, loss.item())
