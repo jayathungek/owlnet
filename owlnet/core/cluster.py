@@ -62,7 +62,8 @@ class DBSCANTorch(DBSCANBase): # TODO: Why is this slower than numpy?
             # reimplement cdist
             diff_mat = self._X[:, None] - self._X[None, :]
             diff_mat = torch.einsum("...k, ...k -> ...", diff_mat, diff_mat).sqrt()
-            return diff_mat / diff_mat.max()
+            diff_mat /= diff_mat.max()
+            return diff_mat 
         elif self._metric == "cosine":
             diff_mat = torch.matmul(self._X, self._X.T)
             diff_mat = (diff_mat + 1.0) / 2
@@ -105,16 +106,17 @@ class DBSCANTorch(DBSCANBase): # TODO: Why is this slower than numpy?
 
 def get_owlet_clusters(config, embeddings):
     embeddings = F.normalize(embeddings, p=2, dim=1)
-    dbscan = DBSCANTorch(config, eps=0.2, minPts=200, metric="euclidean")
-    dbscan.fit(embeddings).cpu()
-    clusters = torch.tensor(dbscan.predict(embeddings))
-    unique_clusters = torch.unique(clusters)
-    indices = torch.tensor(list(range(len(embeddings))))
     embeddings = reduce_dimensions(embeddings)
+    dbscan = DBSCANTorch(config, eps=0.015, minPts=25, metric="euclidean")
+    dbscan.fit(embeddings).cpu()
+    clusters = dbscan.predict(torch.tensor(embeddings), as_numpy=False)
+    unique_clusters = torch.unique(clusters).cpu().numpy()
+    indices = torch.tensor(list(range(len(embeddings))))
+    clusters = clusters.cpu().numpy()
 
 
     ret_clusters = []
-    ret_indices = []
+    ret_indices =  []
     for cluster_id in unique_clusters:
         cluster_select = clusters == cluster_id
         cluster_points = embeddings[cluster_select]

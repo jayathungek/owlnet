@@ -5,6 +5,7 @@ from pathlib import Path
 from datetime import datetime
 
 import numpy as np
+from umap import UMAP
 import torch.nn as nn
 from PIL import Image
 import matplotlib.pyplot as plt
@@ -65,6 +66,11 @@ def get_melspec(config, waveform, sr):
         hop_length=config['hop_length'],
         power=2.0
     )
+    # spectrogram = torchaudio.transforms.MelSpectrogram(
+    #     n_mels=config['n_mels'],
+    #     hop_length=config['hop_length'],
+    #     power=2.0
+    # )
     mel_spec = spectrogram(hipassed)
     mel_spec = torchaudio.transforms.AmplitudeToDB()(mel_spec)
     mel_spec = normalise(mel_spec)[:, :config['max_freq'], :]
@@ -283,9 +289,13 @@ def imshow_to_pil(image_array, cmap="viridis"):
     return pil_image
 
 def reduce_dimensions(embeddings):
-    reducer = PCA(n_components=2, svd_solver='auto')
-    tsne_points = reducer.fit_transform(embeddings)
-    return tsne_points
+    # reducer = PCA(n_components=2, svd_solver='auto')
+    # points = reducer.fit_transform(embeddings)
+
+    reducer = UMAP(n_components=2, metric="cosine")#, random_state=0, transform_seed=0)
+    reducer.fit(embeddings)
+    points = reducer.transform(embeddings)
+    return points
 
 
 def get_label_colours(n):
@@ -322,6 +332,7 @@ def get_model(config, model_name=None):
 
     model_dir = f"{config['proj_root']}/{checkpoint_dir}/{model_name}"
     best_checkpoint = get_sorted_checkpoints(model_dir)[0]
+    print(f"Got best checkpoint from {model_name}: {best_checkpoint.stem}")
 
     save_items = torch.load(best_checkpoint, map_location=torch.device(device))
     owlnet_dict = toggle_model_dict_dataparallel(save_items["model_state_dict"])

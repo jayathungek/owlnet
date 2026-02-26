@@ -1,5 +1,5 @@
 import sys
-from argparse import ArgumentParser
+from argparse import ArgumentParser, BooleanOptionalAction
 
 from owlnet.core.utils import load_config
 
@@ -7,6 +7,8 @@ from owlnet.core.utils import load_config
 def export_parser(args):
     parser = ArgumentParser(prog="export")
     parser.add_argument("filename")
+    parser.add_argument("sample_rate", type=float)
+    parser.add_argument("-k", "--clustering", action=BooleanOptionalAction, default=False)
     parser.add_argument("-c", "--config", default="settings/config.json")
     parser.add_argument("-m", "--model")
     parsed_args = parser.parse_args(args)
@@ -48,9 +50,11 @@ if __name__ == "__main__":
         from owlnet.cli.export import export_to_csv
         export_args = export_parser(sub_args)
         config = load_config(export_args.config)
-        embeds_2d, crossing_times = export_to_csv(
+        export_to_csv(
             export_args.filename,
             config,
+            export_args.sample_rate,
+            export_args.clustering,
             save_plot=True,
             model_name=export_args.model
         )

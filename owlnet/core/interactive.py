@@ -12,6 +12,7 @@ from owlnet.core.utils import (
     get_label_colours,
     imshow_to_pil,
     get_img_data,
+    display_datetime
 )
 from owlnet.data.dataloading import CollateFunc
 from owlnet.core.cluster import get_owlet_clusters
@@ -21,9 +22,11 @@ TO_PIL = transforms.ToPILImage()
 
 
 class VisualiserInteractive:
-    def __init__(self, config, embeddings, melspecs) -> None:
+    def __init__(self, config, embeddings, melspecs, crossing_times, nest_ids) -> None:
         self.embeddings = embeddings
         self.melspecs = melspecs
+        self.crossing_times = crossing_times
+        self.nest_ids = nest_ids
         self.config = config
         self.owlets = 0
 
@@ -90,10 +93,27 @@ class VisualiserInteractive:
         def hover_fn(trace, point, selector):
             if len(point.point_inds) > 0:
                 ind = point.point_inds[0]
-                spec = self.melspecs[ind]
+                batch_sz = self.melspecs[0].shape[0]
+                spec_row, spec_col = ind // batch_sz, ind % batch_sz
+                spec = self.melspecs[spec_row][spec_col]
+                crossing_time = display_datetime(self.crossing_times[ind][0].item())
+                nest_id = self.nest_ids[ind]
                 imagew.update_layout(
                     images=[
                         dict(source=imshow_to_pil(spec)),
+                    ],
+                    annotations=[
+                        dict(
+                            text=f"Time: {crossing_time} | Nest: {nest_id}",
+                            x=0.01,
+                            y=0.99,
+                            xref="paper",
+                            yref="paper",
+                            showarrow=False,
+                            align="left",
+                            font=dict(size=14, color="white"),
+                            bgcolor="rgba(0,0,0,0.6)"
+                        )
                     ]
                 )
             
@@ -141,10 +161,10 @@ class VisualiserInteractive:
         midpoint_x = (max_x + min_x) / 2
         midpoint_y = (max_y + min_y) / 2
 
-        min_x = (midpoint_x - (width / 2)) * self.config["axis_correction"] 
-        min_y = (midpoint_y - (height / 2)) * self.config["axis_correction"] 
-        max_x = (midpoint_x + (width / 2)) * self.config["axis_correction"] 
-        max_y = (midpoint_y + (height / 2)) * self.config["axis_correction"] 
+        min_x = (midpoint_x - (width * self.config["axis_correction"] / 2))  
+        min_y = (midpoint_y - (height * self.config["axis_correction"] / 2))  
+        max_x = (midpoint_x + (width * self.config["axis_correction"] / 2))  
+        max_y = (midpoint_y + (height * self.config["axis_correction"] / 2))  
         return min_x, min_y, max_x, max_y 
 
 
