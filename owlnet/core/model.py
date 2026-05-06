@@ -4,8 +4,6 @@ import torch.nn.functional as F
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
 
 
-
-
 class OwlNet(nn.Module):
     def __init__(self, embedding_dim, dropout, use_attention=False):
         super().__init__()
