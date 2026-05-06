@@ -60,6 +60,7 @@ def export_to_csv(
             pc1, pc2 = item.tolist()
             rows.append([
                 crossing_times[i][0].item(),
+                crossing_times[i][1].item(),
                 nest_lookup[nest_ids[i].item()],
                 find_cluster_of(i),
                 pc1, pc2
@@ -77,7 +78,7 @@ def export_to_csv(
             img_filename = f"{config['exports_dir']}/{filename}.png"
             plt.savefig(img_filename)
 
-        csv_header = ["seq_num", "t_start", "nest_id", "cluster_id", "pc1", "pc2"]
+        csv_header = ["seq_num", "t_start", "t_end", "nest_id", "cluster_id", "pc1", "pc2"]
     else: 
         plt.scatter(
             x=embeddings_2d[:, 0],
@@ -92,10 +93,11 @@ def export_to_csv(
             pc1, pc2 = item.tolist()
             rows.append([
                 crossing_times[i][0].item(),
+                crossing_times[i][1].item(),
                 nest_lookup[nest_ids[i].item()],
                 pc1, pc2
             ])
-        csv_header = ["seq_num", "t_start", "nest_id", "pc1", "pc2"]
+        csv_header = ["seq_num", "t_start", "t_end", "nest_id", "pc1", "pc2"]
 
 
     rows.sort(key=lambda x: x[0])

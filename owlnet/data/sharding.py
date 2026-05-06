@@ -74,7 +74,7 @@ def extract_features(config):
                     sample = {
                         "__key__": f"{shard_index:09d}",
                         "tensor.pth": chunk,
-                        "timestamp.pth": torch.tensor(timestamps, dtype=torch.float32),
+                        "timestamp.pth": torch.tensor(timestamps, dtype=torch.float64),
                         "nestid.pth": torch.tensor(nestid, dtype=torch.int64)
                     }
                     sink.write(sample)
