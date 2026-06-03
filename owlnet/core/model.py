@@ -4,6 +4,18 @@ import torch.nn.functional as F
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
 
 
+# Model needs to take into account the following features as 
+# described by A. Dreiss et al.:
+
+# • Call duration
+# • Absolute loudness (biased by distance from mic)
+# • Absolute loudness (biased by distance from mic)
+# • Absolute loudness (biased by distance from mic)
+# • Loudness deviation (0-1),which represents whether the first or second half of the call is loudest (>0.5: call is louder at the end than the beginning) 
+# • Mean frequency
+# • Upper frequency (25% of call loudness is above this).
+# • Frequency variation (SD over time within the call)
+
 class OwlNet(nn.Module):
     def __init__(self, embedding_dim, dropout, use_attention=False):
         super().__init__()

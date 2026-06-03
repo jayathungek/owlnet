@@ -16,6 +16,7 @@ import torchaudio
 import torch.nn.functional as F
 import torchvision.transforms as trans
 import torchaudio.functional as A
+import pcen
 
 try:
     from owlnet.core.model import OwlNet
@@ -64,7 +65,7 @@ def get_melspec(config, waveform, sr):
     spectrogram = torchaudio.transforms.Spectrogram(
         n_fft=config['n_fft'],
         hop_length=config['hop_length'],
-        power=2.0
+        power=1.0
     )
     # spectrogram = torchaudio.transforms.MelSpectrogram(
     #     n_mels=config['n_mels'],
@@ -72,9 +73,16 @@ def get_melspec(config, waveform, sr):
     #     power=2.0
     # )
     mel_spec = spectrogram(hipassed)
-    mel_spec = torchaudio.transforms.AmplitudeToDB()(mel_spec)
-    mel_spec = normalise(mel_spec)[:, :config['max_freq'], :]
-    return mel_spec
+    normalised, _ = pcen.pcen(
+        mel_spec,
+        s=0.01,
+        alpha=0.85,
+        delta=2,
+        r=0.2
+    )
+    # mel_spec = torchaudio.transforms.AmplitudeToDB()(mel_spec)
+    # normalised = normalise(mel_spec)[:, :config['max_freq'], :]
+    return normalised
 
 
 def display_melspec(melspec, crossings=None, size=(20, 4), colorbar=True):
@@ -104,6 +112,8 @@ def display_audio_file(config, wav_path):
     plt.xlabel("Time")
     plt.ylabel("Amplitude")
     plt.show()
+
+    
     mel_spec_db = get_melspec(config, waveform, sr)
     display_melspec(mel_spec_db)
 
@@ -208,7 +218,9 @@ def chop_file(
     display=False,
 ):
     waveform, sample_rate = torchaudio.load(filepath)
-    melspec = get_melspec(config, waveform, sample_rate)
+    chunksz = 1000000
+    offset  = 3000000
+    melspec = get_melspec(config, waveform[:, offset: offset+chunksz], sample_rate)
     hop_size = config['hop_length']
     min_len = int(((config['min_call_len_ms'] / 1000) * sample_rate) / hop_size)
     max_len = int(((config['max_call_len_ms'] / 1000) * sample_rate) / hop_size)
@@ -227,7 +239,7 @@ def chop_file(
         start_time = start * (hop_size / sample_rate)
         end_time = end * (hop_size / sample_rate)
         chunk = melspec[:, :, start:end]
-        chunk = process_melspec(chunk)
+        # chunk = process_melspec(chunk)
         chunks.append(chunk)
         chunks_crossing_times.append([t_init + start_time, t_init + end_time])
     if display:

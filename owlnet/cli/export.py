@@ -69,14 +69,16 @@ def export_to_csv(
 
         if save_plot:
             colours = get_label_colours(len(owlet_clusters))
+            plt.figure(figsize=(10,10))
             for i, owlet_cluster in enumerate(owlet_clusters):
                 plt.scatter(
                     x=owlet_cluster[:, 0],
                     y=owlet_cluster[:, 1],
                     c=colours[i],
+                    s=1, alpha=0.5, linewidths=0, rasterized=True
                 )
             img_filename = f"{config['exports_dir']}/{filename}.png"
-            plt.savefig(img_filename)
+            plt.savefig(img_filename, dpi=300, bbox_inches="tight")
 
         csv_header = ["seq_num", "t_start", "t_end", "nest_id", "cluster_id", "pc1", "pc2"]
     else: 
