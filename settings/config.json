@@ -11,7 +11,7 @@
 
     "drop": 0,
     "embed_sz": 64,
-    "batch_sz": 2000,
+    "batch_sz": 5000,
     "num_ds_workers": 0,
     "split": [[1], []],
     "spec_height": 750,
@@ -31,6 +31,8 @@
     "min_call_len_ms": 500, 
     "max_call_len_ms": 2100,
     "smoothing_window_ms": 100,
+    "call_bookend_ms": 200,
+    "bg_sampling_points": 100,
 
     "hop_sizes": [20, 40, 60, 80, 100, 200, 300, 500],
     "base_window_width": 20,
