@@ -1,7 +1,7 @@
 {
     "proj_root": "/root/owlnet",
     "data_dir": "owl_data/test",
-    "shard_dir": "owl_data/shards",
+    "shard_dir": "owl_data/testshards",
     "shard_pattern" : "{sharddir}/nest-{nestid}-%06d.tar",
     "shard_size" : 2500,
     "checkpoint_dir": "model_checkpoints",
@@ -11,14 +11,15 @@
 
     "drop": 0,
     "embed_sz": 64,
-    "batch_sz": 5000,
+    "batch_sz": 2500,
     "num_ds_workers": 0,
-    "split": [[1], []],
+    "split": [[0, 1, 2], []],
     "spec_height": 750,
     "learning_rate": 5e-6,
     "use_attn": false,
     "default_model": "all.samples_contrastive.0mask_cnnh.128_100.epochs",
 
+    "num_features": 5,
     "max_freq": 750,
     "n_fft": 4096,
     "n_mels": 128,

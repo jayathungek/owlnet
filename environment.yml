@@ -19,3 +19,4 @@ dependencies:
       - tqdm
       - webdataset
       - umap-learn
+      - git+https://github.com/daemon/pytorch-pcen
