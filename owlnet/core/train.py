@@ -23,6 +23,7 @@ def train(config, model_name):
     owlnet = OwlNet(
         config['embed_sz'],
         config['drop'],
+        config['num_features'],
         config['use_attn']
     ).to(config["device"])
     scaler = torch.cuda.amp.GradScaler(enabled=True)

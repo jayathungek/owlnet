@@ -10,13 +10,21 @@ try:
     from owlnet.core.utils import (
         infer_abs_unix_timestamp,
         get_nest_id,
-        chop_file
+        chop_file,
+        freq_variation,
+        mean_spec_freq,
+        upper_freq,
+        loudness_deviation
     )
 except ModuleNotFoundError:
     from ..core.utils import (
         infer_abs_unix_timestamp,
         get_nest_id,
-        chop_file
+        chop_file,
+        freq_variation,
+        mean_spec_freq,
+        upper_freq,
+        loudness_deviation
     )
  
 
@@ -61,7 +69,7 @@ def extract_features(config):
                 threshold = config["zero_threshold"]
                 print(f"processing file {file.stem} with threshold: {threshold}")
                 try:
-                    chunk, chunks_crossing_times = chop_file(
+                    chunk, chunks_crossing_times, sr = chop_file(
                         config,
                         file,
                         start_time
@@ -71,11 +79,25 @@ def extract_features(config):
                     failed_filenames.append(file.stem)
                     continue
                 for chunk, timestamps in zip(chunk, chunks_crossing_times):
+                    call_len = timestamps[1] - timestamps[0]
+                    lv = loudness_deviation(chunk).item()
+                    mean_freq = mean_spec_freq(chunk, sr, config["n_fft"]).item()
+                    uf = upper_freq(chunk).item()
+                    fv = freq_variation(chunk, sr, config["n_fft"]).item()
+                    dreiss_features = [
+                        call_len,
+                        lv,
+                        mean_freq,
+                        uf,
+                        fv
+                    ]
+                    # print(f"call_len: {call_len:.3f}\nloudness_dev: {lv:.3f}\nmean_freq: {mean_freq:.3f}\nupper_freq: {uf:.3f}\nfreq_var: {fv:.3f}\n-----------------")
                     sample = {
                         "__key__": f"{shard_index:09d}",
                         "tensor.pth": chunk,
+                        "dreiss_features.pth": torch.tensor(dreiss_features, dtype=torch.int64),
                         "timestamp.pth": torch.tensor(timestamps, dtype=torch.float64),
-                        "nestid.pth": torch.tensor(nestid, dtype=torch.int64)
+                        "nestid.pth": torch.tensor(nestid, dtype=torch.int64),
                     }
                     sink.write(sample)
                     shard_index += 1

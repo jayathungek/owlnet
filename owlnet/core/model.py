@@ -9,18 +9,18 @@ from torch.nn import TransformerEncoder, TransformerEncoderLayer
 
 # • Call duration
 # • Absolute loudness (biased by distance from mic)
-# • Absolute loudness (biased by distance from mic)
-# • Absolute loudness (biased by distance from mic)
 # • Loudness deviation (0-1),which represents whether the first or second half of the call is loudest (>0.5: call is louder at the end than the beginning) 
 # • Mean frequency
 # • Upper frequency (25% of call loudness is above this).
 # • Frequency variation (SD over time within the call)
 
 class OwlNet(nn.Module):
-    def __init__(self, embedding_dim, dropout, use_attention=False):
+    def __init__(self, embedding_dim, dropout, num_features, use_attention=False):
         super().__init__()
 
+        # self.out_dim = 128 + embedding_dim
         self.out_dim = 128
+        self.num_features = num_features
         self.use_attention = use_attention
         self.conv1 = nn.Conv2d(1, 32, kernel_size=(128, 16), stride=(2, 2), padding=2)
         self.conv2 = nn.Conv2d(32, 64, kernel_size=(8, 8), stride=(2, 2), padding=1)  
@@ -40,6 +40,13 @@ class OwlNet(nn.Module):
 
         self.dropout = nn.Dropout(dropout)
         self.gap = nn.AdaptiveAvgPool2d((1, 1))
+        self.feat_head = nn.Sequential(
+            nn.LayerNorm(self.num_features),
+            nn.Linear(self.num_features, 32),
+            nn.ReLU(),
+            nn.Linear(32, embedding_dim),
+        )
+
         self.fc = nn.Sequential(
             nn.Linear(self.out_dim, 256),
             nn.BatchNorm1d(256),
@@ -59,7 +66,8 @@ class OwlNet(nn.Module):
         x = torch.flatten(x, start_dim=1) 
         if self.use_attention:
             x = self.attention_module(x)
-        x = self.dropout(x)
-        x = self.fc(x)
-
-        return x
+        z_spec = self.dropout(x)
+        # z_feat = self.feat_head(features)
+        # z = torch.concat([z_spec, z_feat], dim=-1)
+        out = self.fc(z_spec)
+        return out

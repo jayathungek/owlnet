@@ -67,11 +67,6 @@ def get_melspec(config, waveform, sr):
         hop_length=config['hop_length'],
         power=1.0
     )
-    # spectrogram = torchaudio.transforms.MelSpectrogram(
-    #     n_mels=config['n_mels'],
-    #     hop_length=config['hop_length'],
-    #     power=2.0
-    # )
     mel_spec = spectrogram(hipassed)
     normalised, _ = pcen.pcen(
         mel_spec,
@@ -80,9 +75,56 @@ def get_melspec(config, waveform, sr):
         delta=2,
         r=0.2
     )
-    # mel_spec = torchaudio.transforms.AmplitudeToDB()(mel_spec)
-    # normalised = normalise(mel_spec)[:, :config['max_freq'], :]
     return normalised
+
+
+def loudness_deviation(spec):
+    # output: 0 - 1
+    spec = spec.squeeze()
+    energy = spec.sum(dim=0)
+    mid = len(energy) // 2
+    first_half = energy[: mid].sum()
+    second_half = energy[mid:].sum()
+    deviation = second_half / (first_half + second_half)
+    return deviation
+    
+
+def mean_spec_freq(spec, sr, n_fft):
+    # output: 0 - 1
+    spec = spec.squeeze()
+    freq_energy = spec.sum(dim=1)
+    freqs = torch.arange(spec.shape[0])
+    freqs = (freqs * sr) / n_fft
+    max_freq = freqs[-1]
+    freqs = freqs / max_freq
+    mean_freq = torch.sum(freqs * freq_energy) / freq_energy.sum()
+    return mean_freq 
+
+
+def upper_freq(spec):
+    # output: 0 - 1
+    spec = spec.squeeze()
+    freq_energy = spec.sum(dim=1)
+    distribution = torch.cumsum(freq_energy, dim=0)
+    distribution = distribution / distribution[-1]
+
+    idx = torch.searchsorted(distribution, 0.75)
+    return idx
+
+
+def freq_variation(spec, sr, n_fft):
+    spec = spec.squeeze()
+    frame_centroids = []
+    freqs = torch.arange(spec.shape[0])
+    freqs = (freqs * sr) / n_fft
+    for t in range(spec.shape[1]):
+        spectrum = spec[:, t]
+        energy = spectrum.sum()
+        if energy > 0:
+            centroid = torch.sum(freqs * spectrum) / energy
+            frame_centroids.append(centroid)
+    freq_variation = torch.std(torch.tensor(frame_centroids))
+    return freq_variation
 
 
 def display_melspec(melspec, crossings=None, size=(20, 4), colorbar=True):
@@ -218,9 +260,7 @@ def chop_file(
     display=False,
 ):
     waveform, sample_rate = torchaudio.load(filepath)
-    chunksz = 1000000
-    offset  = 3000000
-    melspec = get_melspec(config, waveform[:, offset: offset+chunksz], sample_rate)
+    melspec = get_melspec(config, waveform, sample_rate)
     hop_size = config['hop_length']
     min_len = int(((config['min_call_len_ms'] / 1000) * sample_rate) / hop_size)
     max_len = int(((config['max_call_len_ms'] / 1000) * sample_rate) / hop_size)
@@ -244,7 +284,7 @@ def chop_file(
         chunks_crossing_times.append([t_init + start_time, t_init + end_time])
     if display:
         display_melspec(melspec, chunk_indices)
-    return chunks, chunks_crossing_times
+    return chunks, chunks_crossing_times, sample_rate
 
     
 def display_zero_crossings(config, display=True):
@@ -338,6 +378,7 @@ def get_model(config, model_name=None):
     device = config["device"]
     checkpoint_dir = config["checkpoint_dir"]
     attention = config["use_attn"]
+    num_features = config["num_features"]
 
     if model_name is None:
         model_name = config["default_model"]
@@ -349,10 +390,10 @@ def get_model(config, model_name=None):
     save_items = torch.load(best_checkpoint, map_location=torch.device(device))
     owlnet_dict = toggle_model_dict_dataparallel(save_items["model_state_dict"])
     if device == "cuda":
-        owlnet = nn.DataParallel(OwlNet(embed_sz, drop, use_attention=attention)).to(device)
+        owlnet = nn.DataParallel(OwlNet(embed_sz, drop, num_features, use_attention=attention)).to(device)
         owlnet.module.load_state_dict(owlnet_dict)
     else:
-        owlnet = OwlNet(embed_sz, drop, use_attention=attention).to(device)
+        owlnet = OwlNet(embed_sz, drop, num_features, use_attention=attention).to(device)
         owlnet.load_state_dict(owlnet_dict)
     return owlnet
         
