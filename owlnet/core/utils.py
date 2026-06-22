@@ -79,7 +79,6 @@ def get_melspec(config, waveform, sr):
 
 
 def loudness_deviation(spec):
-    # output: 0 - 1
     spec = spec.squeeze()
     energy = spec.sum(dim=0)
     mid = len(energy) // 2
@@ -90,26 +89,25 @@ def loudness_deviation(spec):
     
 
 def mean_spec_freq(spec, sr, n_fft):
-    # output: 0 - 1
     spec = spec.squeeze()
     freq_energy = spec.sum(dim=1)
     freqs = torch.arange(spec.shape[0])
     freqs = (freqs * sr) / n_fft
-    max_freq = freqs[-1]
-    freqs = freqs / max_freq
     mean_freq = torch.sum(freqs * freq_energy) / freq_energy.sum()
-    return mean_freq 
+    normed = mean_freq / (sr / 2) # nyquist freq
+    return normed 
 
 
-def upper_freq(spec):
-    # output: 0 - 1
+def upper_freq(spec, sr, n_fft):
     spec = spec.squeeze()
     freq_energy = spec.sum(dim=1)
     distribution = torch.cumsum(freq_energy, dim=0)
     distribution = distribution / distribution[-1]
 
     idx = torch.searchsorted(distribution, 0.75)
-    return idx
+    upper = (idx * sr) / n_fft
+    normed = upper / (sr / 2) # nyquist freq
+    return normed
 
 
 def freq_variation(spec, sr, n_fft):
@@ -124,7 +122,8 @@ def freq_variation(spec, sr, n_fft):
             centroid = torch.sum(freqs * spectrum) / energy
             frame_centroids.append(centroid)
     freq_variation = torch.std(torch.tensor(frame_centroids))
-    return freq_variation
+    normed = freq_variation / (sr / 2) # nyquist freq
+    return normed
 
 
 def display_melspec(melspec, crossings=None, size=(20, 4), colorbar=True):
@@ -375,10 +374,11 @@ def load_config(config_path):
 def get_model(config, model_name=None):
     drop = config["drop"]
     embed_sz = config["embed_sz"]
+    enc_out_dim = config["enc_out_dim"]
     device = config["device"]
     checkpoint_dir = config["checkpoint_dir"]
     attention = config["use_attn"]
-    num_features = config["num_features"]
+    num_dreiss_features = config["num_dreiss_features"]
 
     if model_name is None:
         model_name = config["default_model"]
@@ -390,10 +390,22 @@ def get_model(config, model_name=None):
     save_items = torch.load(best_checkpoint, map_location=torch.device(device))
     owlnet_dict = toggle_model_dict_dataparallel(save_items["model_state_dict"])
     if device == "cuda":
-        owlnet = nn.DataParallel(OwlNet(embed_sz, drop, num_features, use_attention=attention)).to(device)
+        owlnet = nn.DataParallel(OwlNet(
+            enc_out_dim, 
+            embed_sz,
+            drop,
+            num_dreiss_features,
+            use_attention=attention
+        )).to(device)
         owlnet.module.load_state_dict(owlnet_dict)
     else:
-        owlnet = OwlNet(embed_sz, drop, num_features, use_attention=attention).to(device)
+        owlnet = OwlNet(
+            enc_out_dim,
+            embed_sz,
+            drop,
+            num_dreiss_features,
+            use_attention=attention
+        ).to(device)
         owlnet.load_state_dict(owlnet_dict)
     return owlnet
         

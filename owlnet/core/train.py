@@ -21,9 +21,10 @@ def train(config, model_name):
     train_ds_size = load_obj["train"]["size"]
     model_name = f"{model_name}_{config['train_epochs']}.epochs"
     owlnet = OwlNet(
+        config['enc_out_dim'],
         config['embed_sz'],
         config['drop'],
-        config['num_features'],
+        config['num_dreiss_features'],
         config['use_attn']
     ).to(config["device"])
     scaler = torch.cuda.amp.GradScaler(enabled=True)
@@ -55,13 +56,14 @@ def train(config, model_name):
             num_batches = train_ds_size / config["batch_sz"]
             total_loss = 0
             total_batches = 0
-            for i, (train_batch, train_aug_batch, _, _) in enumerate(owlet_train):
+            for i, (train_batch, train_aug_batch, dreiss_features, _, _) in enumerate(owlet_train):
                 optimizer.zero_grad()
                 train_batch = train_batch.to(config["device"])
                 train_aug_batch = train_aug_batch.to(config["device"])
+                dreiss_features = dreiss_features.to(config["device"])
                 with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=True), torch.backends.cuda.sdp_kernel(enable_flash=False):
-                    embeds = owlnet(train_batch)
-                    embeds_aug = owlnet(train_aug_batch)
+                    embeds = owlnet(train_batch, dreiss_features)
+                    embeds_aug = owlnet(train_aug_batch, dreiss_features)
                     embeds_cat = torch.cat(
                         (
                             F.normalize(embeds, p=2, dim=1).unsqueeze(1),

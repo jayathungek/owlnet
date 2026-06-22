@@ -15,22 +15,28 @@ from torch.nn import TransformerEncoder, TransformerEncoderLayer
 # • Frequency variation (SD over time within the call)
 
 class OwlNet(nn.Module):
-    def __init__(self, embedding_dim, dropout, num_features, use_attention=False):
+    def __init__(
+        self,
+        encoder_dim,
+        embedding_dim,
+        dropout,
+        num_dreiss_features,
+        use_attention=False
+    ):
         super().__init__()
 
-        # self.out_dim = 128 + embedding_dim
-        self.out_dim = 128
-        self.num_features = num_features
+        self.out_dim = 2 * encoder_dim
+        self.num_dreiss_features = num_dreiss_features
         self.use_attention = use_attention
         self.conv1 = nn.Conv2d(1, 32, kernel_size=(128, 16), stride=(2, 2), padding=2)
         self.conv2 = nn.Conv2d(32, 64, kernel_size=(8, 8), stride=(2, 2), padding=1)  
-        self.conv3 = nn.Conv2d(64, 128, kernel_size=(5, 5), stride=(2, 2), padding=1) 
-        self.conv4 = nn.Conv2d(128, 128, kernel_size=(3, 3), stride=(2, 2), padding=1)
+        self.conv3 = nn.Conv2d(64, encoder_dim, kernel_size=(5, 5), stride=(2, 2), padding=1) 
+        self.conv4 = nn.Conv2d(encoder_dim, encoder_dim, kernel_size=(3, 3), stride=(2, 2), padding=1)
 
         self.bn1 = nn.BatchNorm2d(32)
         self.bn2 = nn.BatchNorm2d(64)
-        self.bn3 = nn.BatchNorm2d(128)
-        self.bn4 = nn.BatchNorm2d(128)
+        self.bn3 = nn.BatchNorm2d(encoder_dim)
+        self.bn4 = nn.BatchNorm2d(encoder_dim)
 
         # TODO: for some reason, using attention breaks the validation 
         # visualisation tool. It appears to reflect the embeddings on the y axis??
@@ -41,10 +47,10 @@ class OwlNet(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.gap = nn.AdaptiveAvgPool2d((1, 1))
         self.feat_head = nn.Sequential(
-            nn.LayerNorm(self.num_features),
-            nn.Linear(self.num_features, 32),
+            nn.LayerNorm(self.num_dreiss_features),
+            nn.Linear(self.num_dreiss_features, 32),
             nn.ReLU(),
-            nn.Linear(32, embedding_dim),
+            nn.Linear(32, encoder_dim),
         )
 
         self.fc = nn.Sequential(
@@ -56,7 +62,7 @@ class OwlNet(nn.Module):
             nn.Linear(512, embedding_dim)
         )
 
-    def forward(self, x):
+    def forward(self, x, dreiss_features):
         x = F.relu(self.bn1(self.conv1(x)))
         x = F.relu(self.bn2(self.conv2(x)))
         x = F.relu(self.bn3(self.conv3(x)))
@@ -67,7 +73,7 @@ class OwlNet(nn.Module):
         if self.use_attention:
             x = self.attention_module(x)
         z_spec = self.dropout(x)
-        # z_feat = self.feat_head(features)
-        # z = torch.concat([z_spec, z_feat], dim=-1)
-        out = self.fc(z_spec)
+        z_feat = self.feat_head(dreiss_features)
+        z = torch.concat([z_spec, z_feat], dim=-1)
+        out = self.fc(z)
         return out
