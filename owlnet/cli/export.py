@@ -52,8 +52,6 @@ def export_to_csv(
         6: 24_000,
         7: 24_000,
     }
-    SPEC_HEIGHT = 2049
-    N_FFT = config["n_fft"]
     if do_clustering:
         owlet_clusters, owlet_indices = get_owlet_clusters(config, embeddings)
         print(f"Got {len(owlet_clusters)} clusters")
