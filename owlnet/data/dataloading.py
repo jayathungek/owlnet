@@ -31,13 +31,14 @@ class CollateFunc:
 
     def __init__(self, config):
         self.spec_height = config['spec_height']
+        self.min_len = config['min_tsteps']
         self.augmentor = Specaugment(
             config['specaugment_tmask'],
             config['specaugment_fmask']
         )
     
     def __call__(self, batch):
-        max_len = 0
+        max_len = self.min_len
         for spec, _, _, _ in batch:
             time_len = spec.shape[-1]
             max_len = time_len if time_len > max_len else max_len

@@ -12,7 +12,7 @@
     "drop": 0,
     "embed_sz": 64,
     "batch_sz": 1500,
-    "num_ds_workers": 0,
+    "num_ds_workers": 4,
     "split": [[0, 1, 2], []],
     "spec_height": 750,
     "learning_rate": 5e-6,
@@ -28,6 +28,7 @@
     "hipass_cutoff_hz": 500,
     "specaugment_tmask": 0,
     "specaugment_fmask": 5,
+    "min_tsteps": 24,
 
     "zero_threshold": 0.4,
     "min_call_len_ms": 500, 
