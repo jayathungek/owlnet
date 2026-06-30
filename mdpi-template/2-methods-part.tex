@@ -1,0 +1,77 @@
+\section{Methodology}
+This section will go over the process of how the stuff was done technically. 
+
+\subsection{Recording equipment and datasets}
+This is where a description of the recording equipment used  will go, as well as a Figure xxx that will be referenced below:
+
+[FIGURE XXX - RECORDING EQUIPMENT USED IN THIS STUDY]
+
+The data were collected from three nesting sites. Please refer to Section~\ref{subsec:data_processing} for a description of how individual owlet hisses were extracted from the audio streams.  
+\begin{enumerate}
+  \item Stoke Wake: description (x hours, yielding 136,095 samples) ...  -- Figure~xxx
+  \item Trigon: description (x hours, yielding 228,822 samples)... -- Figure~xxx
+  \item Holt Lodge: description (x hours, yielding 163611 samples)... -- Figure~xxx
+\end{enumerate}
+
+
+\subsection{Data processing}
+\label{subsec:data_processing}
+First, the recorded audio was loaded into torch and we got the raw signal, which was put through a high pass filter to filter out the frequencies that were lower than \SI{500}{\hertz}, as this is the lower bound for hearing in barn owls~\cite{krummBarnOwlsHave2017}. Following this, the audio was transformed into Mel-scale spectrograms, which are widely used in deep learning for audio application [CITE SEVERAL]. Please see Figure~\ref{fig:dsp_pipeline} for a visualisation of the Mel-spectrograms produced by this process.  Due to the barn owl chicks' negotiating behaviour -- as first described by xxx [CITE] -- it was possible to  do a zero crossing algo (See appendix X for details) to extract out the individual hisses. The extracted individual hisses were used as data points for feeding into the machine learning model which will be described in the upcoming sections.
+
+Information on avian hissing, using owl hissing as an example~\cite{thysAvianHissingSounds2025}. Could be useful in modifying the model to make it more effective. This paper mentions that avian hissing sounds are broadband (i.e. each hiss occupies a wide range of frequencies)\\
+
+Spectrogram analysis is often used as a pre-processing step~\cite{pamelaIDENTIFICATIONINDIVIDUALBARRED2008}
+
+[FIGURE XXX - MEL SPECTROGRAMS DERIVED FROM OWLET HISSES - ONE CAN CLEARLY SEE THE SEPARATION BETWEEN SUBSEQUENT HISSES.]
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.7\linewidth]{dsp_pipeline.png}
+  \captionsetup{justification=centering}
+  \caption{The data pre-processing pipeline --  the raw input signal is put through a \SI{500}{\hertz} high pass filter, followed by a Mel-spectrogram transform. Due to the separation between the individual owlet hisses, it is possible to employ a zero-crossing and thresholding algorithm to separate the hisses into individual spectrograms, which are the input to the machine learning model.}
+  \label{fig:dsp_pipeline}
+\end{figure}
+
+\subsection{Deep learning model}
+\label{subsec:model}
+The spectrograms obtained from pre-processing can be thought of as images. Indeed, this is the motivation behind converting time-domain signals into spectrograms in the first place. This allows a very common deep learning architecture called convolutional neural networks (CNNs) to be used in this application. As shown in Figure~\ref{fig:owlnet_arch}, the input is put through several CNN layers. Table~\ref{tab:owlnet_arch} reports the architectural details of the model. It shows that the model begins with a large receptive field that covers most of the time axis, while learning finer-grained spectral patterns in the frequency axis. Because the hisses are short, temporal structure is quite limited, and the vocal individuality is mostly encoded in the frequency. 
+
+\begin{table}[h]
+\centering
+\caption{CNN architecture for processing owlet spectrograms}
+\label{tab:owlnet_arch}
+\begin{tabular}{lcccc}
+\hline
+Layer & Output Channels & Kernel Size & Stride          \\
+\hline
+Input & 1 & $700 \times 20$ & $2 \times 2$              \\
+
+Conv1 + BN + ReLU & 32 & $128 \times 16$ & $2 \times 2$ \\
+Conv2 + BN + ReLU & 64 & $8 \times 8$ & $2 \times 2$    \\
+Conv3 + BN + ReLU & 128 & $5 \times 5$ & $2 \times 2$   \\
+Conv4 + BN + ReLU & 128 & $3 \times 3$ & $2 \times 2$    \\
+
+Adaptive Avg Pool & 128 & $1 \times 1$ & --              \\
+Flatten & -- & -- & --                                  \\
+
+Dropout & -- & -- & --                                   \\
+
+FC1 + BN + ReLU & 256 & -- & --                          \\
+FC2 + ReLU & 512 & -- & --                               \\
+FC3 & embedding\_dim & -- & --                          \\
+\hline
+\end{tabular}
+\end{table}
+
+The work follows a similar architecture as [XXX][CITE], which is a thingy that does the same stuff of like, perturbing the input slightly (expand on this with Specaugment~\cite{parkSpecaugmentSimpleData2019}), and then running it through the shared weights model stuff so that the output embeddings ($z$ and $z'$) are slightly different. These are then subjected to contrastive learning, specifically InfoNCE loss~\cite{oordRepresentationLearningContrastive2019}, which is defined as follows:
+
+\begin{equation}\label{eq:infonce_loss}
+    \mathcal{L}_{cont} = -\sum_{i \in I}^{} \log\frac{\exp(z_i \cdot z_{a(i)} / \tau)}{\sum\limits_{n \in I \setminus a(i)} \exp(z_i \cdot z_{n} / \tau)}
+\end{equation}
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.9\linewidth]{owlnet_arch.png}
+  \captionsetup{justification=centering}
+  \caption{The pre-processed Mel-spectrograms ($x$), and a perturbed version of the same inputs ($x'$) are sent through the model simultaneously to obtain their embeddings: $z$ and $z'$, respectively. }
+  \label{fig:owlnet_arch}
+\end{figure}

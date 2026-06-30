@@ -8,3 +8,7 @@ __pycache__
 exports/*
 !exports/__init__.py
 *.old.*
+mdpi-template/*
+!mdpi-template/Definitions
+!mdpi-template/references.bib
+!mdpi-template/*-part.tex

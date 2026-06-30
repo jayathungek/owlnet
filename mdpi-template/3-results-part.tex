@@ -1,0 +1,32 @@
+\section{Results and discussion}
+The embeddings described in Section~\ref{subsec:model} encode information about that particular screech, including (hopefully) information about the specific owl that produced the sound. This section presents evidence that these embeddings do indeed encode information about vocal individuality. To do this, we employ UMAP~\cite{mcinnesUMAPUniformManifold2018} for dimension reduction from 64 to 2, for easy visualisation -- see Figure~\ref{fig:embeds}. Figure~\ref{fig:embeds_all} shows ...
+
+\begin{figure}[htbp]
+    \centering
+
+    \subfloat[All nests]{
+        \includegraphics[width=0.45\textwidth]{all_nests_530k_0tmask_5fmask.png}
+        \label{fig:embeds_all}
+    }
+    \hfill
+    \subfloat[Stoke Wake]{
+        \includegraphics[width=0.45\textwidth]{stokewake_all.pt_136k_0tmask_5fmask.png}
+        \label{fig:embeds_stokewake}
+    }
+    \vfill
+    \subfloat[Trigon]{
+        \includegraphics[width=0.45\textwidth]{trigon_all.pt_229k_0tmask_5fmask.png}
+        \label{fig:embeds_trigon}
+    }
+    \hfill
+    \subfloat[Holt Lodge]{
+        \includegraphics[width=0.45\textwidth]{holtlodge_all.pt_166k_0tmask_5fmask.png}
+        \label{fig:embeds_holtlodge}
+    }
+    \caption{Plots of dimension reduced embeddings from all the nests studied in this work -- Stoke Wake, Trigon and Holt Lodge.}
+    \label{fig:embeds}
+\end{figure}
+
+\subsection{Analysis of deep learning embeddings}
+[BRIAN'S ANALAYSIS HERE]
+
