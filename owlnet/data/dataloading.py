@@ -31,14 +31,15 @@ class CollateFunc:
 
     def __init__(self, config):
         self.spec_height = config['spec_height']
+        self.min_len = config['min_tsteps']
         self.augmentor = Specaugment(
             config['specaugment_tmask'],
             config['specaugment_fmask']
         )
     
     def __call__(self, batch):
-        max_len = 0
-        for spec, _, _ in batch:
+        max_len = self.min_len
+        for spec, _, _, _ in batch:
             time_len = spec.shape[-1]
             max_len = time_len if time_len > max_len else max_len
             
@@ -46,7 +47,8 @@ class CollateFunc:
         padded = []
         crossing_times_list = []
         nest_id_list = []
-        for spec, crossing_times, nest_id in batch:
+        dreiss_features_list = []
+        for spec, dreiss_features, crossing_times, nest_id in batch:
             padding_needed = max_len - spec.shape[2]
             if padding_needed > 0:
                 height = spec.shape[1]
@@ -56,12 +58,14 @@ class CollateFunc:
             padded.append(spec)
             nest_id_list.append(nest_id.unsqueeze(0))
             crossing_times_list.append(crossing_times.unsqueeze(0))
+            dreiss_features_list.append(dreiss_features.unsqueeze(0))
             
         padded = torch.cat(padded).unsqueeze(1)
         crossing_times = torch.cat(crossing_times_list)
         nest_ids = torch.cat(nest_id_list)
+        dreiss_features = torch.cat(dreiss_features_list)
         padded_aug = self.augmentor(padded)
-        return padded, padded_aug, crossing_times, nest_ids
+        return padded, padded_aug, dreiss_features, crossing_times, nest_ids
     
 
 def load_data(config, sample_rate=1.0):
@@ -99,7 +103,7 @@ def load_data(config, sample_rate=1.0):
            .shuffle(config['shard_size'])
            .rsample(sample_rate)
            .decode("torch")
-           .to_tuple("tensor.pth", "timestamp.pth", "nestid.pth")
+           .to_tuple("tensor.pth", "dreiss_features.pth", "timestamp.pth", "nestid.pth")
     )
     train_dl = DataLoader(
         train_ds, 
@@ -122,7 +126,7 @@ def load_data(config, sample_rate=1.0):
             )
             .shuffle(config['shard_size'])
             .decode("torch")
-            .to_tuple("tensor.pth", "timestamp.pth", "nestid.pth")
+            .to_tuple("tensor.pth", "dreiss_features.pth", "timestamp.pth", "nestid.pth")
         )
         test_dl = DataLoader(
             test_ds, 
@@ -159,26 +163,29 @@ def create_embeds(config, model, dataloader):
     specs = []
     crossing_times_list = []
     nest_id_list = []
+    dreiss_features_list = []
     for batch in dataloader:
         with torch.no_grad():
-            data_specs, _, crossing_times, nest_ids = batch
+            data_specs, _, dreiss_features, crossing_times, nest_ids = batch
             specs.append(data_specs)
             data_specs = data_specs.to(config['device'])
             with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=True), torch.backends.cuda.sdp_kernel(enable_flash=False):
-                embeds_batch = model(data_specs)
+                embeds_batch = model(data_specs, dreiss_features)
                 embeds_batch = F.normalize(embeds_batch, p=2, dim=1) 
                 embeds.append(embeds_batch.detach().cpu())
                 nest_id_list.append(nest_ids)
                 crossing_times_list.append(crossing_times)
+                dreiss_features_list.append(dreiss_features)
     embeds = torch.cat(embeds)
     crossing_times = torch.cat(crossing_times_list)
+    dreiss_features = torch.cat(dreiss_features_list)
     nest_ids = torch.cat(nest_id_list)
-    return embeds, specs, crossing_times, nest_ids
+    return embeds, specs, crossing_times, nest_ids, dreiss_features
 
 
 def get_all_validation_embeds(config, owlnet, owlet_dataset, collate_func):
     verification_dl = get_verification_dataloader(owlet_dataset, None, collate_func)
-    validation_embeds, _, _, _= create_embeds(config, owlnet, verification_dl)
+    validation_embeds, _, _, _, _= create_embeds(config, owlnet, verification_dl)
     validation_embeds = F.normalize(validation_embeds, p=2, dim=1)
     embeddings_2d = reduce_dimensions(validation_embeds)
     return embeddings_2d

@@ -37,7 +37,7 @@ class DBSCANTorch(DBSCANBase): # TODO: Why is this slower than numpy?
                     len(neighbors) > self._minPts
                 ):  # not >= because self is included in neighbours
                     labels[i] = cluster
-                    labels = self._expand_cluster(
+                    labels = self._expand_cluster_iterative(
                         dist_matrix, neighbors, cluster, labels
                     )
                     cluster += 1
@@ -101,6 +101,20 @@ class DBSCANTorch(DBSCANBase): # TODO: Why is this slower than numpy?
                     labels = self._expand_cluster(
                         X, neighbors_of_neighbor, cluster, labels
                     )
+        return labels
+
+    def _expand_cluster_iterative(self, X, neighbors, cluster, labels):
+        stack = list(neighbors)
+        
+        while stack:
+            neighbor = stack.pop()
+            if not labels[neighbor]:  # if point is unassigned
+                neighbors_of_neighbor = self._get_nearest_neighbours(X[neighbor])
+                if len(neighbors_of_neighbor) >= self._minPts:  # if point is core
+                    labels[neighbor] = cluster
+                    stack.extend(neighbors_of_neighbor)
+            print(f"Stack sz: {len(stack)}\r", flush=True, end="")
+        print("")
         return labels
 
 

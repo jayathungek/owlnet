@@ -16,6 +16,7 @@ import torchaudio
 import torch.nn.functional as F
 import torchvision.transforms as trans
 import torchaudio.functional as A
+import pcen
 
 try:
     from owlnet.core.model import OwlNet
@@ -64,17 +65,65 @@ def get_melspec(config, waveform, sr):
     spectrogram = torchaudio.transforms.Spectrogram(
         n_fft=config['n_fft'],
         hop_length=config['hop_length'],
-        power=2.0
+        power=1.0
     )
-    # spectrogram = torchaudio.transforms.MelSpectrogram(
-    #     n_mels=config['n_mels'],
-    #     hop_length=config['hop_length'],
-    #     power=2.0
-    # )
     mel_spec = spectrogram(hipassed)
-    mel_spec = torchaudio.transforms.AmplitudeToDB()(mel_spec)
-    mel_spec = normalise(mel_spec)[:, :config['max_freq'], :]
-    return mel_spec
+    normalised, _ = pcen.pcen(
+        mel_spec,
+        s=0.01,
+        alpha=0.85,
+        delta=2,
+        r=0.2
+    )
+    return normalised
+
+
+def loudness_deviation(spec):
+    spec = spec.squeeze()
+    energy = spec.sum(dim=0)
+    mid = len(energy) // 2
+    first_half = energy[: mid].sum()
+    second_half = energy[mid:].sum()
+    deviation = second_half / (first_half + second_half)
+    return deviation
+    
+
+def mean_spec_freq(spec, sr, n_fft):
+    spec = spec.squeeze()
+    freq_energy = spec.sum(dim=1)
+    freqs = torch.arange(spec.shape[0])
+    freqs = (freqs * sr) / n_fft
+    mean_freq = torch.sum(freqs * freq_energy) / freq_energy.sum()
+    normed = mean_freq / (sr / 2) # nyquist freq
+    return normed 
+
+
+def upper_freq(spec, sr, n_fft):
+    spec = spec.squeeze()
+    freq_energy = spec.sum(dim=1)
+    distribution = torch.cumsum(freq_energy, dim=0)
+    distribution = distribution / distribution[-1]
+
+    idx = torch.searchsorted(distribution, 0.75)
+    upper = (idx * sr) / n_fft
+    normed = upper / (sr / 2) # nyquist freq
+    return normed
+
+
+def freq_variation(spec, sr, n_fft):
+    spec = spec.squeeze()
+    frame_centroids = []
+    freqs = torch.arange(spec.shape[0])
+    freqs = (freqs * sr) / n_fft
+    for t in range(spec.shape[1]):
+        spectrum = spec[:, t]
+        energy = spectrum.sum()
+        if energy > 0:
+            centroid = torch.sum(freqs * spectrum) / energy
+            frame_centroids.append(centroid)
+    freq_variation = torch.std(torch.tensor(frame_centroids))
+    normed = freq_variation / (sr / 2) # nyquist freq
+    return normed
 
 
 def display_melspec(melspec, crossings=None, size=(20, 4), colorbar=True):
@@ -104,6 +153,8 @@ def display_audio_file(config, wav_path):
     plt.xlabel("Time")
     plt.ylabel("Amplitude")
     plt.show()
+
+    
     mel_spec_db = get_melspec(config, waveform, sr)
     display_melspec(mel_spec_db)
 
@@ -227,12 +278,12 @@ def chop_file(
         start_time = start * (hop_size / sample_rate)
         end_time = end * (hop_size / sample_rate)
         chunk = melspec[:, :, start:end]
-        chunk = process_melspec(chunk)
+        # chunk = process_melspec(chunk)
         chunks.append(chunk)
         chunks_crossing_times.append([t_init + start_time, t_init + end_time])
     if display:
         display_melspec(melspec, chunk_indices)
-    return chunks, chunks_crossing_times
+    return chunks, chunks_crossing_times, sample_rate
 
     
 def display_zero_crossings(config, display=True):
@@ -323,9 +374,11 @@ def load_config(config_path):
 def get_model(config, model_name=None):
     drop = config["drop"]
     embed_sz = config["embed_sz"]
+    enc_out_dim = config["enc_out_dim"]
     device = config["device"]
     checkpoint_dir = config["checkpoint_dir"]
     attention = config["use_attn"]
+    num_dreiss_features = config["num_dreiss_features"]
 
     if model_name is None:
         model_name = config["default_model"]
@@ -337,10 +390,22 @@ def get_model(config, model_name=None):
     save_items = torch.load(best_checkpoint, map_location=torch.device(device))
     owlnet_dict = toggle_model_dict_dataparallel(save_items["model_state_dict"])
     if device == "cuda":
-        owlnet = nn.DataParallel(OwlNet(embed_sz, drop, use_attention=attention)).to(device)
+        owlnet = nn.DataParallel(OwlNet(
+            enc_out_dim, 
+            embed_sz,
+            drop,
+            num_dreiss_features,
+            use_attention=attention
+        )).to(device)
         owlnet.module.load_state_dict(owlnet_dict)
     else:
-        owlnet = OwlNet(embed_sz, drop, use_attention=attention).to(device)
+        owlnet = OwlNet(
+            enc_out_dim,
+            embed_sz,
+            drop,
+            num_dreiss_features,
+            use_attention=attention
+        ).to(device)
         owlnet.load_state_dict(owlnet_dict)
     return owlnet
         
