@@ -163,6 +163,7 @@ def create_embeds(config, model, dataloader):
     specs = []
     crossing_times_list = []
     nest_id_list = []
+    dreiss_features_list = []
     for batch in dataloader:
         with torch.no_grad():
             data_specs, _, dreiss_features, crossing_times, nest_ids = batch
@@ -174,8 +175,10 @@ def create_embeds(config, model, dataloader):
                 embeds.append(embeds_batch.detach().cpu())
                 nest_id_list.append(nest_ids)
                 crossing_times_list.append(crossing_times)
+                dreiss_features_list.append(dreiss_features)
     embeds = torch.cat(embeds)
     crossing_times = torch.cat(crossing_times_list)
+    dreiss_features = torch.cat(dreiss_features_list)
     nest_ids = torch.cat(nest_id_list)
     return embeds, specs, crossing_times, nest_ids, dreiss_features
 
