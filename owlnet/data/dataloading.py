@@ -52,8 +52,8 @@ class CollateFunc:
             padding_needed = max_len - spec.shape[2]
             if padding_needed > 0:
                 height = spec.shape[1]
-                # spec = F.pad(spec, (0, padding_needed), "constant", 0)
                 spec = resize(spec, (height, max_len), antialias=True)
+                # spec = F.pad(spec, (0, padding_needed), "constant", 0)
 
             padded.append(spec)
             nest_id_list.append(nest_id.unsqueeze(0))

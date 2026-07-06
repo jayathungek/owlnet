@@ -67,15 +67,16 @@ def get_melspec(config, waveform, sr):
         hop_length=config['hop_length'],
         power=1.0
     )
-    mel_spec = spectrogram(hipassed).permute(0, 2, 1)
+    mel_spec = spectrogram(hipassed)
     normalised, _ = pcen.pcen(
-        mel_spec,
+        mel_spec.permute(0, 2, 1),
         s=config["pcen_s"],
         alpha=config["pcen_alpha"],
         delta=config["pcen_delta"],
         r=config["pcen_r"]
     )
-    return normalised.permute(0, 2, 1)
+    ret_spec = normalised.permute(0, 2, 1)
+    return ret_spec
 
 
 def loudness_deviation(spec):
@@ -155,8 +156,8 @@ def display_audio_file(config, wav_path):
     plt.show()
 
     
-    mel_spec_db = get_melspec(config, waveform, sr)
-    display_melspec(mel_spec_db)
+    normed_spec = get_melspec(config, waveform, sr)
+    display_melspec(normed_spec)
 
 
 def gather_data_files(config):
@@ -259,12 +260,12 @@ def chop_file(
     display=False,
 ):
     waveform, sample_rate = torchaudio.load(filepath)
-    melspec = get_melspec(config, waveform, sample_rate)
+    normed_spec = get_melspec(config, waveform, sample_rate)
     hop_size = config['hop_length']
     min_len = int(((config['min_call_len_ms'] / 1000) * sample_rate) / hop_size)
     max_len = int(((config['max_call_len_ms'] / 1000) * sample_rate) / hop_size)
     chunk_indices = get_zero_crossing_indices(
-        melspec,
+        normed_spec,
         config['zero_threshold'],
         min_len,
         max_len,
@@ -277,12 +278,11 @@ def chop_file(
         end = chunk_indices[i + 1]
         start_time = start * (hop_size / sample_rate)
         end_time = end * (hop_size / sample_rate)
-        chunk = melspec[:, :, start:end]
-        # chunk = process_melspec(chunk)
+        chunk = normed_spec[:, :, start:end]
         chunks.append(chunk)
         chunks_crossing_times.append([t_init + start_time, t_init + end_time])
     if display:
-        display_melspec(melspec, chunk_indices)
+        display_melspec(normed_spec, chunk_indices)
     return chunks, chunks_crossing_times, sample_rate
 
     
