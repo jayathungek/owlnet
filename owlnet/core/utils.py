@@ -67,15 +67,15 @@ def get_melspec(config, waveform, sr):
         hop_length=config['hop_length'],
         power=1.0
     )
-    mel_spec = spectrogram(hipassed)
+    mel_spec = spectrogram(hipassed).permute(0, 2, 1)
     normalised, _ = pcen.pcen(
         mel_spec,
-        s=0.01,
-        alpha=0.85,
-        delta=2,
-        r=0.2
+        s=config["pcen_s"],
+        alpha=config["pcen_alpha"],
+        delta=config["pcen_delta"],
+        r=config["pcen_r"]
     )
-    return normalised
+    return normalised.permute(0, 2, 1)
 
 
 def loudness_deviation(spec):
